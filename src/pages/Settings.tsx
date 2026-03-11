@@ -1,9 +1,11 @@
-import { User, Moon, Sun, Bell, Shield } from "lucide-react";
+import { User, Moon, Sun, Shield, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SettingsPage() {
   const [darkMode, setDarkMode] = useState(true);
   const [role, setRole] = useState<"student" | "professional">("student");
+  const { user, signOut } = useAuth();
 
   const toggleDark = () => {
     setDarkMode(!darkMode);
@@ -22,6 +24,10 @@ export default function SettingsPage() {
             <h2 className="text-sm font-medium">Profile</h2>
           </div>
           <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Email</label>
+              <p className="text-sm">{user?.email}</p>
+            </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Role</label>
               <div className="flex gap-2">
@@ -64,9 +70,12 @@ export default function SettingsPage() {
             <Shield size={14} className="text-primary" />
             <h2 className="text-sm font-medium">Account</h2>
           </div>
-          <p className="text-sm text-muted-foreground">Sign in to sync your data across devices.</p>
-          <button className="mt-3 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-            Sign in
+          <button
+            onClick={signOut}
+            className="flex items-center gap-2 px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors"
+          >
+            <LogOut size={14} />
+            Sign out
           </button>
         </section>
       </div>
