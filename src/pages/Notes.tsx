@@ -82,9 +82,7 @@ export default function Notes() {
         setNotes(notesRes.data as Note[]);
         if (!selectedNote && notesRes.data.length > 0) {
           const first = notesRes.data[0] as Note;
-          setSelectedNote(first.id);
-          setTitle(first.title);
-          setEditorContent(migrateContent(first.content));
+          selectNote(first);
         }
       }
       setLoading(false);
