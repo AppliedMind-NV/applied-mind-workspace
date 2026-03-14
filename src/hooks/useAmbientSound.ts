@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
-type SoundType = "Rain" | "Café" | "White Noise" | "Silence";
+type SoundType = "Rain" | "Café" | "White Noise" | "Lo-Fi" | "Silence";
 
 function createNoiseBuffer(ctx: AudioContext, seconds: number = 4, channels = 2) {
   const size = ctx.sampleRate * seconds;
