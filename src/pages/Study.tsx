@@ -1,9 +1,9 @@
-import { Play, Pause, RotateCcw, Volume2, CheckCircle } from "lucide-react";
+import { Play, Pause, RotateCcw, CheckCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useAmbientSound } from "@/hooks/useAmbientSound";
+import StudySounds from "@/components/StudySounds";
 
 export default function Study() {
   const { user } = useAuth();
