@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, FileText, X, Loader2, Sparkles } from "lucide-react";
+import { Upload, FileText, X, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
@@ -7,13 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
-const ACCEPTED_TYPES = [
-  "application/pdf",
-  "text/plain",
-  "text/markdown",
-  "text/x-markdown",
-];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const ACCEPTED_EXTS = ["pdf", "txt", "md", "markdown"];
+const ACCEPTED_TYPES = ["application/pdf", "text/plain", "text/markdown", "text/x-markdown"];
+const MAX_SIZE = 10 * 1024 * 1024;
+const MAX_FILES = 10;
 
 interface LectureUploadProps {
   open: boolean;
@@ -22,73 +19,93 @@ interface LectureUploadProps {
   onNoteCreated: (noteId: string) => void;
 }
 
-type Stage = "idle" | "reading" | "generating" | "saving" | "done" | "error";
+type FileStatus = "queued" | "reading" | "generating" | "saving" | "done" | "error";
+
+interface QueuedFile {
+  file: File;
+  status: FileStatus;
+  progress: number;
+  error?: string;
+  noteId?: string;
+}
 
 export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: LectureUploadProps) {
   const { user } = useAuth();
-  const [file, setFile] = useState<File | null>(null);
-  const [stage, setStage] = useState<Stage>("idle");
-  const [progress, setProgress] = useState(0);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [files, setFiles] = useState<QueuedFile[]>([]);
+  const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastCreatedId = useRef<string | null>(null);
 
   const reset = () => {
-    setFile(null);
-    setStage("idle");
-    setProgress(0);
-    setErrorMsg("");
+    setFiles([]);
+    setProcessing(false);
     setDragOver(false);
+    lastCreatedId.current = null;
   };
 
   const handleClose = (v: boolean) => {
+    if (processing) return; // prevent closing while processing
     if (!v) reset();
     onOpenChange(v);
   };
 
   const validateFile = (f: File): string | null => {
     const ext = f.name.split(".").pop()?.toLowerCase();
-    const isAccepted = ACCEPTED_TYPES.includes(f.type) || ["pdf", "txt", "md", "markdown"].includes(ext || "");
-    if (!isAccepted) return "Unsupported file type. Please upload a PDF, TXT, or Markdown file.";
-    if (f.size > MAX_SIZE) return "File is too large. Maximum size is 10MB.";
+    const ok = ACCEPTED_TYPES.includes(f.type) || ACCEPTED_EXTS.includes(ext || "");
+    if (!ok) return "Unsupported type";
+    if (f.size > MAX_SIZE) return "Too large (max 10MB)";
     return null;
   };
 
-  const pickFile = (f: File) => {
-    const err = validateFile(f);
-    if (err) {
-      toast({ title: "Invalid file", description: err, variant: "destructive" });
-      return;
+  const addFiles = useCallback((incoming: FileList | File[]) => {
+    const arr = Array.from(incoming);
+    const valid: QueuedFile[] = [];
+    let skipped = 0;
+
+    for (const f of arr) {
+      const err = validateFile(f);
+      if (err) {
+        skipped++;
+        continue;
+      }
+      valid.push({ file: f, status: "queued", progress: 0 });
     }
-    setFile(f);
-    setErrorMsg("");
+
+    setFiles((prev) => {
+      const combined = [...prev, ...valid].slice(0, MAX_FILES);
+      if (combined.length < prev.length + valid.length) {
+        toast({ title: "Limit reached", description: `Maximum ${MAX_FILES} files at once.` });
+      }
+      return combined;
+    });
+
+    if (skipped > 0) {
+      toast({ title: `${skipped} file(s) skipped`, description: "Only PDF, TXT, and Markdown files are supported.", variant: "destructive" });
+    }
+  }, []);
+
+  const removeFile = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const f = e.dataTransfer.files[0];
-    if (f) pickFile(f);
-  }, []);
+    addFiles(e.dataTransfer.files);
+  }, [addFiles]);
 
   const extractTextFromPdf = async (file: File): Promise<string> => {
     const pdfjsLib = await import("pdfjs-dist");
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const pages: string[] = [];
-
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      const text = content.items
-        .map((item: any) => item.str)
-        .join(" ");
-      pages.push(text);
-      setProgress(Math.round((i / pdf.numPages) * 50));
+      pages.push(content.items.map((item: any) => item.str).join(" "));
     }
-
     return pages.join("\n\n");
   };
 
@@ -97,27 +114,25 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     if (ext === "pdf" || file.type === "application/pdf") {
       return extractTextFromPdf(file);
     }
-    // Plain text / markdown
-    setProgress(30);
-    const text = await file.text();
-    setProgress(50);
-    return text;
+    return file.text();
   };
 
-  const generate = async () => {
-    if (!file || !user) return;
+  const updateFile = (idx: number, patch: Partial<QueuedFile>) => {
+    setFiles((prev) => prev.map((f, i) => (i === idx ? { ...f, ...patch } : f)));
+  };
+
+  const processOne = async (idx: number, qf: QueuedFile): Promise<string | null> => {
+    if (!user) return null;
 
     try {
-      setStage("reading");
-      setProgress(5);
-      const rawText = await extractText(file);
+      updateFile(idx, { status: "reading", progress: 10 });
+      const rawText = await extractText(qf.file);
 
       if (rawText.trim().length < 50) {
-        throw new Error("The file doesn't contain enough text to generate notes.");
+        throw new Error("Not enough text to generate notes.");
       }
 
-      setStage("generating");
-      setProgress(55);
+      updateFile(idx, { status: "generating", progress: 40 });
 
       const resp = await fetch(NOTE_AI_URL, {
         method: "POST",
@@ -138,174 +153,216 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
         throw new Error(data.error || `AI request failed (${resp.status})`);
       }
 
-      setProgress(80);
+      updateFile(idx, { progress: 75 });
       const data = await resp.json();
       const raw = data.content?.trim() || "";
-
-      // Extract JSON from possible markdown fences
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Failed to parse AI response into notes format.");
+      if (!jsonMatch) throw new Error("Failed to parse AI response.");
 
       let noteContent: any;
       try {
         noteContent = JSON.parse(jsonMatch[0]);
       } catch {
-        throw new Error("AI returned invalid JSON. Please try again.");
+        throw new Error("AI returned invalid JSON.");
       }
 
-      // Extract title from first heading
-      let title = file.name.replace(/\.[^.]+$/, "");
+      let title = qf.file.name.replace(/\.[^.]+$/, "");
       const firstHeading = noteContent.content?.find((n: any) => n.type === "heading");
-      if (firstHeading?.content?.[0]?.text) {
-        title = firstHeading.content[0].text;
-      }
+      if (firstHeading?.content?.[0]?.text) title = firstHeading.content[0].text;
 
-      setStage("saving");
-      setProgress(90);
+      updateFile(idx, { status: "saving", progress: 90 });
 
       const { data: note, error } = await supabase
         .from("notes")
-        .insert({
-          user_id: user.id,
-          title,
-          content: noteContent,
-          folder_id: folderId,
-        })
+        .insert({ user_id: user.id, title, content: noteContent, folder_id: folderId })
         .select("id")
         .single();
 
       if (error) throw error;
 
-      setProgress(100);
-      setStage("done");
-
-      toast({
-        title: "Notes generated!",
-        description: `"${title}" has been created from your upload.`,
-      });
-
-      setTimeout(() => {
-        handleClose(false);
-        if (note) onNoteCreated(note.id);
-      }, 600);
+      updateFile(idx, { status: "done", progress: 100, noteId: note?.id });
+      return note?.id || null;
     } catch (err: any) {
-      setStage("error");
-      setErrorMsg(err.message || "Something went wrong.");
-      toast({ title: "Generation failed", description: err.message, variant: "destructive" });
+      updateFile(idx, { status: "error", error: err.message || "Failed" });
+      return null;
     }
   };
 
-  const stageLabels: Record<Stage, string> = {
-    idle: "",
-    reading: "Extracting text from document…",
-    generating: "AI is generating structured notes…",
-    saving: "Saving to your notebook…",
-    done: "Done!",
-    error: "Something went wrong.",
+  const processAll = async () => {
+    if (files.length === 0 || !user) return;
+    setProcessing(true);
+
+    let successCount = 0;
+    let lastId: string | null = null;
+
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].status === "done") continue;
+      const id = await processOne(i, files[i]);
+      if (id) {
+        successCount++;
+        lastId = id;
+      }
+    }
+
+    setProcessing(false);
+
+    if (successCount > 0) {
+      toast({
+        title: `${successCount} note${successCount > 1 ? "s" : ""} generated!`,
+        description: `From ${files.length} uploaded file${files.length > 1 ? "s" : ""}.`,
+      });
+      if (lastId) {
+        lastCreatedId.current = lastId;
+      }
+    }
   };
 
-  const isProcessing = ["reading", "generating", "saving"].includes(stage);
+  const handleDone = () => {
+    const id = lastCreatedId.current;
+    handleClose(false);
+    if (id) onNoteCreated(id);
+  };
+
+  const allDone = files.length > 0 && files.every((f) => f.status === "done" || f.status === "error");
+  const hasQueued = files.some((f) => f.status === "queued");
+  const successCount = files.filter((f) => f.status === "done").length;
+
+  const statusIcon = (s: FileStatus) => {
+    switch (s) {
+      case "done": return <CheckCircle2 size={14} className="text-primary shrink-0" />;
+      case "error": return <AlertCircle size={14} className="text-destructive shrink-0" />;
+      case "queued": return <FileText size={14} className="text-muted-foreground shrink-0" />;
+      default: return <Loader2 size={14} className="animate-spin text-primary shrink-0" />;
+    }
+  };
+
+  const statusLabel = (s: FileStatus) => {
+    const map: Record<FileStatus, string> = {
+      queued: "Queued",
+      reading: "Extracting…",
+      generating: "Generating…",
+      saving: "Saving…",
+      done: "Done",
+      error: "Failed",
+    };
+    return map[s];
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles size={16} className="text-primary" />
-            Import Lecture
+            Import Lectures
           </DialogTitle>
           <DialogDescription>
-            Upload a PDF, transcript, or text file to auto-generate structured study notes.
+            Upload up to {MAX_FILES} files (PDF, TXT, Markdown) to auto-generate study notes.
           </DialogDescription>
         </DialogHeader>
 
-        {stage === "idle" || stage === "error" ? (
-          <div className="space-y-4">
-            {/* Drop zone */}
-            <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-              onClick={() => inputRef.current?.click()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                dragOver
-                  ? "border-primary bg-primary/5"
-                  : file
-                  ? "border-primary/40 bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-primary/40 hover:bg-accent/50"
-              }`}
-            >
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".pdf,.txt,.md,.markdown"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) pickFile(f);
-                  e.target.value = "";
-                }}
-              />
-              {file ? (
-                <div className="flex items-center justify-center gap-3">
-                  <FileText size={20} className="text-primary" />
-                  <div className="text-left">
-                    <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {(file.size / 1024).toFixed(0)} KB
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                    className="p-1 rounded-md hover:bg-accent"
-                  >
-                    <X size={14} className="text-muted-foreground" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <Upload size={24} className="mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Drop a file here or <span className="text-primary font-medium">browse</span>
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    PDF, TXT, or Markdown • Max 10MB
-                  </p>
-                </>
-              )}
-            </div>
-
-            {stage === "error" && (
-              <p className="text-xs text-destructive">{errorMsg}</p>
-            )}
-
-            <button
-              onClick={generate}
-              disabled={!file}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Sparkles size={14} />
-              Generate Notes
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4 py-4">
-            <div className="flex items-center gap-3">
-              {stage === "done" ? (
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-primary text-sm">✓</span>
-                </div>
-              ) : (
-                <Loader2 size={20} className="animate-spin text-primary" />
-              )}
-              <div>
-                <p className="text-sm font-medium">{stageLabels[stage]}</p>
-                <p className="text-[10px] text-muted-foreground">{file?.name}</p>
-              </div>
-            </div>
-            <Progress value={progress} className="h-1.5" />
+        {/* Drop zone — always visible when not processing */}
+        {!processing && !allDone && (
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => inputRef.current?.click()}
+            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+              dragOver
+                ? "border-primary bg-primary/5"
+                : files.length > 0
+                ? "border-muted-foreground/20 hover:border-primary/40"
+                : "border-muted-foreground/25 hover:border-primary/40 hover:bg-accent/50"
+            }`}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".pdf,.txt,.md,.markdown"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <Upload size={20} className="mx-auto text-muted-foreground mb-1.5" />
+            <p className="text-sm text-muted-foreground">
+              Drop files here or <span className="text-primary font-medium">browse</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              PDF, TXT, or Markdown • Max 10MB each • Up to {MAX_FILES} files
+            </p>
           </div>
         )}
+
+        {/* File list */}
+        {files.length > 0 && (
+          <div className="space-y-1.5 max-h-[280px] overflow-auto scrollbar-thin">
+            {files.map((qf, idx) => (
+              <div
+                key={`${qf.file.name}-${idx}`}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-md border bg-background"
+              >
+                {statusIcon(qf.status)}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">{qf.file.name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      {(qf.file.size / 1024).toFixed(0)} KB
+                    </span>
+                    <span className={`text-[10px] ${qf.status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                      {qf.error || statusLabel(qf.status)}
+                    </span>
+                  </div>
+                  {qf.status !== "queued" && qf.status !== "done" && qf.status !== "error" && (
+                    <Progress value={qf.progress} className="h-1 mt-1" />
+                  )}
+                </div>
+                {qf.status === "queued" && !processing && (
+                  <button
+                    onClick={() => removeFile(idx)}
+                    className="p-0.5 rounded hover:bg-accent shrink-0"
+                  >
+                    <X size={12} className="text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          {allDone ? (
+            <button
+              onClick={handleDone}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <CheckCircle2 size={14} />
+              {successCount > 0 ? `View ${successCount === 1 ? "Note" : "Notes"}` : "Close"}
+            </button>
+          ) : (
+            <button
+              onClick={processAll}
+              disabled={files.length === 0 || processing}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {processing ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Processing…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} />
+                  Generate {files.length > 1 ? `${files.length} Notes` : "Notes"}
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
