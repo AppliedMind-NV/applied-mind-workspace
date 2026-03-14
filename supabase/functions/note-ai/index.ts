@@ -78,6 +78,7 @@ serve(async (req) => {
     }
 
     const isFlashcards = action === "flashcards";
+    const isPracticeJson = action === "practice_json";
     const isGenerateNotes = action === "generate_notes";
 
     const response = await fetch(
