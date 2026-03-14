@@ -1,4 +1,4 @@
-import { CloudRain, Coffee, AudioLines, VolumeX, Volume2 } from "lucide-react";
+import { CloudRain, Coffee, AudioLines, VolumeX, Volume2, Loader2 } from "lucide-react";
 import { useAmbientSound } from "@/hooks/useAmbientSound";
 import { Slider } from "@/components/ui/slider";
 
@@ -21,7 +21,7 @@ interface StudySoundsProps {
 }
 
 export default function StudySounds({ compact = false }: StudySoundsProps) {
-  const { active, toggle, volume, setVolume } = useAmbientSound();
+  const { active, toggle, volume, setVolume, loading } = useAmbientSound();
 
   const activeSound = sounds.find((s) => s.id === active);
 
@@ -37,10 +37,12 @@ export default function StudySounds({ compact = false }: StudySoundsProps) {
         {sounds.map((sound) => {
           const Icon = sound.icon;
           const isActive = active === sound.id;
+          const isLoading = loading && active !== sound.id && !isActive;
           return (
             <button
               key={sound.id}
               onClick={() => toggle(sound.id)}
+              disabled={loading}
               className={`
                 flex flex-col items-center gap-1.5 rounded-xl transition-all duration-200
                 ${compact ? "px-3 py-2" : "px-4 py-3 min-w-[72px]"}
@@ -48,6 +50,7 @@ export default function StudySounds({ compact = false }: StudySoundsProps) {
                   ? "bg-primary/10 text-primary border border-primary/20 shadow-sm"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground border border-transparent"
                 }
+                ${loading ? "opacity-60 cursor-wait" : ""}
               `}
               title={sound.label}
             >
@@ -60,15 +63,23 @@ export default function StudySounds({ compact = false }: StudySoundsProps) {
         })}
       </div>
 
+      {/* Loading indicator */}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 mt-3 animate-fade-in">
+          <Loader2 size={14} className="text-primary animate-spin" />
+          <p className="text-xs text-muted-foreground">Generating sound…</p>
+        </div>
+      )}
+
       {/* Active label */}
-      {activeSound && (
+      {activeSound && !loading && (
         <p className="text-xs text-muted-foreground text-center mt-3 animate-fade-in">
           {activeSound.activeLabel}
         </p>
       )}
 
       {/* Volume slider */}
-      {active && active !== "Silence" && (
+      {active && active !== "Silence" && !loading && (
         <div className="flex items-center justify-center gap-3 mt-4 animate-fade-in">
           <Volume2 size={14} className="text-muted-foreground shrink-0" />
           <Slider
