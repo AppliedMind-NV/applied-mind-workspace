@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -11,6 +11,9 @@ import {
   BookOpen,
   Zap,
   Flame,
+  Sparkles,
+  CheckCircle2,
+  RotateCcw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import WeeklyHeatmap from "@/components/WeeklyHeatmap";
@@ -26,6 +29,21 @@ interface RecentNote {
   id: string;
   title: string;
   updated_at: string;
+  folder_id: string | null;
+}
+
+interface DueFlashcard {
+  id: string;
+  front: string;
+  note_id: string | null;
+}
+
+interface ReviewTopic {
+  noteId: string;
+  noteTitle: string;
+  folderName: string | null;
+  daysSinceUpdate: number;
+  flashcardCount: number;
 }
 
 export default function Dashboard() {
@@ -42,22 +60,43 @@ export default function Dashboard() {
   const [minutesPerDay, setMinutesPerDay] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
+  // Study Plan state
+  const [dueCards, setDueCards] = useState<DueFlashcard[]>([]);
+  const [reviewTopics, setReviewTopics] = useState<ReviewTopic[]>([]);
+  const [staleNotes, setStaleNotes] = useState<RecentNote[]>([]);
+
   useEffect(() => {
     if (!user) return;
 
     const load = async () => {
       const now = new Date().toISOString();
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [notesRes, flashcardsDueRes, flashcardsTotalRes, sessionsRes, recentRes, streakRes] =
-        await Promise.all([
-          supabase.from("notes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-          supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review", now),
-          supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-          supabase.from("study_sessions").select("duration_minutes").eq("user_id", user.id).gte("started_at", weekAgo),
-          supabase.from("notes").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(5),
-          supabase.from("study_sessions").select("started_at, duration_minutes").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
-        ]);
+      const [
+        notesRes,
+        flashcardsDueRes,
+        flashcardsTotalRes,
+        sessionsRes,
+        recentRes,
+        streakRes,
+        dueCardsRes,
+        staleNotesRes,
+        foldersRes,
+      ] = await Promise.all([
+        supabase.from("notes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review", now),
+        supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("study_sessions").select("duration_minutes").eq("user_id", user.id).gte("started_at", weekAgo),
+        supabase.from("notes").select("id, title, updated_at, folder_id").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(5),
+        supabase.from("study_sessions").select("started_at, duration_minutes").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
+        // Due flashcards with preview
+        supabase.from("flashcards").select("id, front, note_id").eq("user_id", user.id).lte("next_review", now).order("next_review", { ascending: true }).limit(5),
+        // Notes not updated in 3+ days (candidates for review)
+        supabase.from("notes").select("id, title, updated_at, folder_id").eq("user_id", user.id).lte("updated_at", threeDaysAgo).order("updated_at", { ascending: true }).limit(10),
+        // Folders for topic names
+        supabase.from("folders").select("id, name").eq("user_id", user.id),
+      ]);
 
       setNotesCount(notesRes.count ?? 0);
       setFlashcardsDue(flashcardsDueRes.count ?? 0);
@@ -90,7 +129,6 @@ export default function Dashboard() {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
 
-      // Streak counts if user studied today or yesterday
       if (sortedDays.length > 0) {
         const mostRecent = new Date(sortedDays[0]);
         mostRecent.setHours(0, 0, 0, 0);
@@ -102,17 +140,38 @@ export default function Dashboard() {
             const prev = new Date(sortedDays[i - 1]);
             prev.setHours(0, 0, 0, 0);
             const diffDays = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
-            if (diffDays === 1) {
-              currentStreak++;
-            } else {
-              break;
-            }
+            if (diffDays === 1) currentStreak++;
+            else break;
           }
         }
       }
       setStreak(currentStreak);
-
       setRecentNotes(recentRes.data ?? []);
+      setDueCards(dueCardsRes.data ?? []);
+
+      // Build review topics from stale notes
+      const folders = foldersRes.data ?? [];
+      const folderMap = new Map(folders.map((f) => [f.id, f.name]));
+      const staleData = staleNotesRes.data ?? [];
+      setStaleNotes(staleData);
+
+      // Group stale notes by folder for recommended topics
+      const topicMap = new Map<string, ReviewTopic>();
+      for (const note of staleData) {
+        const key = note.folder_id || "__uncategorized";
+        const daysSince = Math.floor((Date.now() - new Date(note.updated_at).getTime()) / (1000 * 60 * 60 * 24));
+        if (!topicMap.has(key)) {
+          topicMap.set(key, {
+            noteId: note.id,
+            noteTitle: note.title,
+            folderName: note.folder_id ? (folderMap.get(note.folder_id) ?? "Unknown") : null,
+            daysSinceUpdate: daysSince,
+            flashcardCount: 0,
+          });
+        }
+      }
+      setReviewTopics(Array.from(topicMap.values()).slice(0, 4));
+
       setLoading(false);
     };
 
@@ -137,6 +196,37 @@ export default function Dashboard() {
     return "Good evening";
   };
 
+  const studyPlanItems = [
+    ...(flashcardsDue > 0
+      ? [{
+          key: "flashcards",
+          icon: Layers,
+          label: `Review ${flashcardsDue} due flashcard${flashcardsDue !== 1 ? "s" : ""}`,
+          sublabel: dueCards.length > 0 ? dueCards.slice(0, 2).map((c) => c.front).join(" • ") : undefined,
+          action: () => navigate("/flashcards"),
+          priority: "high" as const,
+        }]
+      : []),
+    ...reviewTopics.map((topic) => ({
+      key: `review-${topic.noteId}`,
+      icon: RotateCcw,
+      label: topic.folderName ? `Review ${topic.folderName}` : `Review "${topic.noteTitle}"`,
+      sublabel: `Last updated ${topic.daysSinceUpdate}d ago`,
+      action: () => navigate("/notes"),
+      priority: "medium" as const,
+    })),
+    ...staleNotes.slice(0, 2).filter((n) => !reviewTopics.some((t) => t.noteId === n.id)).map((note) => ({
+      key: `stale-${note.id}`,
+      icon: FileText,
+      label: `Revisit "${note.title}"`,
+      sublabel: formatTime(note.updated_at),
+      action: () => navigate("/notes"),
+      priority: "low" as const,
+    })),
+  ].slice(0, 5);
+
+  const allCaughtUp = studyPlanItems.length === 0 && !loading;
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 animate-fade-in">
       <div className="mb-8">
@@ -159,6 +249,62 @@ export default function Dashboard() {
             <span className="text-sm font-medium">{action.label}</span>
           </button>
         ))}
+      </div>
+
+      {/* Today's Study Plan */}
+      <div className="rounded-lg border bg-card p-4 mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Sparkles size={14} className="text-primary" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Today's Study Plan</span>
+          </div>
+          {studyPlanItems.length > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              {studyPlanItems.length} item{studyPlanItems.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground px-3 py-2">Loading…</p>
+        ) : allCaughtUp ? (
+          <div className="flex items-center gap-3 px-3 py-4 text-center justify-center">
+            <CheckCircle2 size={18} className="text-primary" />
+            <div>
+              <p className="text-sm font-medium">All caught up!</p>
+              <p className="text-xs text-muted-foreground">No pending reviews. Create notes or start a study session.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {studyPlanItems.map((item) => (
+              <button
+                key={item.key}
+                onClick={item.action}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors text-left group"
+              >
+                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                  item.priority === "high"
+                    ? "bg-primary/10"
+                    : item.priority === "medium"
+                    ? "bg-accent"
+                    : "bg-muted"
+                }`}>
+                  <item.icon size={14} className={
+                    item.priority === "high" ? "text-primary" : "text-muted-foreground"
+                  } />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.label}</p>
+                  {item.sublabel && (
+                    <p className="text-[10px] text-muted-foreground truncate">{item.sublabel}</p>
+                  )}
+                </div>
+                <ArrowRight size={14} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6 mb-8">
