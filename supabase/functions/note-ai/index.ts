@@ -92,7 +92,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: aiMessages,
-          stream: !(isFlashcards || isGenerateNotes),
+          stream: !(isFlashcards || isGenerateNotes || isPracticeJson),
         }),
       }
     );
