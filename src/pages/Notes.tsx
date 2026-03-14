@@ -8,14 +8,15 @@ import {
   ChevronRight,
   ChevronDown,
   Pencil,
-  Check,
-  X,
   FolderPlus,
   MoreHorizontal,
   ArrowRightLeft,
+  ArrowLeft,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
+import NoteEditor from "@/components/NoteEditor";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -37,7 +38,7 @@ interface Folder {
 interface Note {
   id: string;
   title: string;
-  content: { body: string } | null;
+  content: any;
   updated_at: string;
   folder_id: string | null;
 }
@@ -48,7 +49,7 @@ export default function Notes() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
   const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  const [editorContent, setEditorContent] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saveTimeout, setSaveTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -81,7 +82,7 @@ export default function Notes() {
           const first = notesRes.data[0] as Note;
           setSelectedNote(first.id);
           setTitle(first.title);
-          setBody((first.content as any)?.body ?? "");
+          setEditorContent(migrateContent(first.content));
         }
       }
       setLoading(false);
@@ -97,28 +98,46 @@ export default function Notes() {
     }
   }, [editingFolderId]);
 
+  // Migrate old { body: string } format to TipTap JSON
+  const migrateContent = (content: any): any => {
+    if (!content) return { type: "doc", content: [] };
+    // Already TipTap JSON
+    if (content.type === "doc") return content;
+    // Old format: { body: "text" }
+    if (typeof content.body === "string" && content.body) {
+      return {
+        type: "doc",
+        content: content.body.split("\n").filter(Boolean).map((line: string) => ({
+          type: "paragraph",
+          content: [{ type: "text", text: line }],
+        })),
+      };
+    }
+    return { type: "doc", content: [] };
+  };
+
   const selectNote = (note: Note) => {
     setSelectedNote(note.id);
     setTitle(note.title);
-    setBody((note.content as any)?.body ?? "");
+    setEditorContent(migrateContent(note.content));
   };
 
   const autoSave = useCallback(
-    (noteId: string, newTitle: string, newBody: string) => {
+    (noteId: string, newTitle: string, newContent: any) => {
       if (saveTimeout) clearTimeout(saveTimeout);
       const timeout = setTimeout(async () => {
         await supabase
           .from("notes")
-          .update({ title: newTitle || "Untitled", content: { body: newBody } })
+          .update({ title: newTitle || "Untitled", content: newContent })
           .eq("id", noteId);
         setNotes((prev) =>
           prev.map((n) =>
             n.id === noteId
-              ? { ...n, title: newTitle || "Untitled", content: { body: newBody }, updated_at: new Date().toISOString() }
+              ? { ...n, title: newTitle || "Untitled", content: newContent, updated_at: new Date().toISOString() }
               : n
           )
         );
-      }, 600);
+      }, 800);
       setSaveTimeout(timeout);
     },
     [saveTimeout]
@@ -126,12 +145,12 @@ export default function Notes() {
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
-    if (selectedNote) autoSave(selectedNote, val, body);
+    if (selectedNote) autoSave(selectedNote, val, editorContent);
   };
 
-  const handleBodyChange = (val: string) => {
-    setBody(val);
-    if (selectedNote) autoSave(selectedNote, title, val);
+  const handleEditorUpdate = (json: any) => {
+    setEditorContent(json);
+    if (selectedNote) autoSave(selectedNote, title, json);
   };
 
   // Folder CRUD
@@ -191,7 +210,7 @@ export default function Notes() {
     if (selectedNote === id) {
       setSelectedNote(null);
       setTitle("");
-      setBody("");
+      setEditorContent(null);
     }
   };
 
@@ -341,6 +360,13 @@ export default function Notes() {
       {/* Sidebar */}
       <div className="w-64 border-r flex flex-col shrink-0">
         <div className="p-3 border-b space-y-2">
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
+          >
+            <ArrowLeft size={12} />
+            Back to Dashboard
+          </Link>
           <div className="flex gap-1.5">
             <button
               onClick={() => createNote(null)}
@@ -510,22 +536,22 @@ export default function Notes() {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {selectedNote ? (
-          <div className="flex-1 p-8 max-w-3xl">
+          <div className="flex-1 flex flex-col p-8 max-w-3xl overflow-hidden">
             <input
               type="text"
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
-              className="w-full text-2xl font-semibold bg-transparent outline-none mb-4 placeholder:text-muted-foreground"
+              className="w-full text-2xl font-semibold bg-transparent outline-none mb-4 placeholder:text-muted-foreground shrink-0"
               placeholder="Untitled"
             />
-            <textarea
-              value={body}
-              onChange={(e) => handleBodyChange(e.target.value)}
-              className="w-full flex-1 min-h-[400px] text-base leading-relaxed text-foreground/90 bg-transparent outline-none resize-none"
-              placeholder="Start typing your notes… Use ⌘K to invoke the AI assistant."
-            />
+            <div className="flex-1 min-h-0">
+              <NoteEditor
+                content={editorContent}
+                onUpdate={handleEditorUpdate}
+              />
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -537,7 +563,7 @@ export default function Notes() {
         )}
 
         {/* Compact study sounds at bottom of editor */}
-        <div className="border-t px-4 py-3 flex justify-center">
+        <div className="border-t px-4 py-3 flex justify-center shrink-0">
           <StudySounds compact />
         </div>
       </div>
