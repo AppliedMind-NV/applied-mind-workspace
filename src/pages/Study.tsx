@@ -198,10 +198,15 @@ export default function Study() {
       <div className="mt-12">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Ambient</p>
         <div className="flex items-center justify-center gap-2">
-          {["Rain", "Café", "White Noise", "Silence"].map((sound) => (
+          {(["Rain", "Café", "White Noise", "Silence"] as const).map((sound) => (
             <button
               key={sound}
-              className="px-3 py-1.5 rounded-md border text-xs hover:bg-accent transition-colors text-muted-foreground"
+              onClick={() => toggleSound(sound)}
+              className={`px-3 py-1.5 rounded-md border text-xs transition-colors ${
+                activeSound === sound
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
             >
               {sound}
             </button>
