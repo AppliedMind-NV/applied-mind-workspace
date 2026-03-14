@@ -13,6 +13,7 @@ const sounds: SoundOption[] = [
   { id: "Rain", label: "Rain", icon: CloudRain, activeLabel: "Playing Rain" },
   { id: "Café", label: "Cafe", icon: Coffee, activeLabel: "Playing Cafe" },
   { id: "White Noise", label: "White Noise", icon: AudioLines, activeLabel: "Playing White Noise" },
+  { id: "Forest", label: "Forest", icon: TreePine, activeLabel: "Playing Forest" },
   { id: "Silence", label: "Silence", icon: VolumeX, activeLabel: "Silence selected" },
 ];
 

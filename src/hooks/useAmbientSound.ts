@@ -35,6 +35,10 @@ const SOUND_PROMPTS: Record<Exclude<SoundType, "Silence">, { prompt: string; dur
     prompt: "Pure smooth white noise static, consistent and even, like a fan or air conditioner humming steadily",
     duration: 15,
   },
+  Forest: {
+    prompt: "Peaceful forest ambience with birds singing and chirping, gentle wind rustling through leaves and trees, calm nature sounds for relaxation and studying",
+    duration: 22,
+  },
 };
 
 // In-memory cache: sound type → base64 audio data URL
