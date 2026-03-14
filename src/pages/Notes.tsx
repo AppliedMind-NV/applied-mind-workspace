@@ -1,4 +1,5 @@
 import { Plus, Search, FileText, Trash2 } from "lucide-react";
+import StudySounds from "@/components/StudySounds";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -205,6 +206,11 @@ export default function Notes() {
             </div>
           </div>
         )}
+
+        {/* Compact study sounds at bottom of editor */}
+        <div className="border-t px-4 py-3 flex justify-center">
+          <StudySounds compact />
+        </div>
       </div>
     </div>
   );

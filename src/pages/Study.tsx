@@ -1,13 +1,13 @@
-import { Play, Pause, RotateCcw, Volume2, CheckCircle } from "lucide-react";
+import { Play, Pause, RotateCcw, CheckCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { useAmbientSound } from "@/hooks/useAmbientSound";
+import StudySounds from "@/components/StudySounds";
 
 export default function Study() {
   const { user } = useAuth();
-  const { active: activeSound, toggle: toggleSound, volume, setVolume } = useAmbientSound();
+  
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [mode, setMode] = useState<"focus" | "break">("focus");
@@ -174,9 +174,7 @@ export default function Study() {
           </button>
         )}
         {!sessionId && (
-          <button className="p-3 rounded-full border hover:bg-accent transition-colors">
-            <Volume2 size={16} className="text-muted-foreground" />
-          </button>
+          <div className="w-3 h-3" /> /* spacer for layout symmetry */
         )}
       </div>
 
@@ -195,42 +193,7 @@ export default function Study() {
       </div>
 
       {/* Ambient Sounds */}
-      <div className="mt-12">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Ambient</p>
-        <div className="flex items-center justify-center gap-2">
-          {(["Rain", "Café", "Lo-Fi", "White Noise", "Silence"] as const).map((sound) => (
-            <button
-              key={sound}
-              onClick={() => toggleSound(sound)}
-              className={`px-3 py-1.5 rounded-md border text-xs transition-colors ${
-                activeSound === sound
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "text-muted-foreground hover:bg-accent"
-              }`}
-            >
-              {sound}
-            </button>
-          ))}
-        </div>
-        {/* Volume Control */}
-        {activeSound && activeSound !== "Silence" && (
-          <div className="flex items-center justify-center gap-3 mt-4">
-            <Volume2 size={14} className="text-muted-foreground" />
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
-              className="w-32 h-1 accent-primary bg-muted rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
-            />
-            <span className="text-xs text-muted-foreground tabular-nums w-8">
-              {Math.round(volume * 100)}%
-            </span>
-          </div>
-        )}
-      </div>
+      <StudySounds />
     </div>
   );
 }
