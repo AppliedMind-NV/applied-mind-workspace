@@ -5,77 +5,78 @@ export type SoundType = "Rain" | "Café" | "White Noise" | "Forest" | "Silence";
 
 /**
  * ============================================================
- * AMBIENT SOUND SYSTEM — ElevenLabs AI-generated audio
+ * AMBIENT SOUND SYSTEM — Pre-cached ElevenLabs audio from Storage
  * ============================================================
  *
- * Each sound type maps to a specific ElevenLabs SFX prompt:
+ * Sounds are stored in the 'ambient-sounds' storage bucket as MP3 files.
+ * On first load, the hook checks if files exist in storage.
+ * If not, it triggers generation via the edge function.
+ * Once generated, sounds load instantly from the public URL.
  *
- *   "Rain"        → Realistic rain with distant thunder
- *   "Café"        → Coffee shop ambience with voices & cups
- *   "White Noise" → Smooth static noise
- *   "Silence"     → No audio
- *
- * Generated audio is cached in memory so each sound is only
- * generated once per session. Audio loops seamlessly.
+ *   "Rain"        → ambient-sounds/rain.mp3
+ *   "Café"        → ambient-sounds/cafe.mp3
+ *   "White Noise"  → ambient-sounds/whitenoise.mp3
+ *   "Forest"      → ambient-sounds/forest.mp3
+ *   "Silence"      → No audio
  * ============================================================
  */
 
-// -- Prompt definitions for each sound type --
-// Each sound maps to a completely different ElevenLabs prompt
-const SOUND_PROMPTS: Record<Exclude<SoundType, "Silence">, { prompt: string; duration: number }> = {
-  Rain: {
-    prompt: "Heavy rain falling on a rooftop with occasional distant thunder rumbles and water dripping, soothing rain ambience for studying",
-    duration: 22,
-  },
-  "Café": {
-    prompt: "Busy coffee shop ambience with multiple people talking in background, espresso machine sounds, cups clinking on saucers, warm indoor cafe atmosphere",
-    duration: 22,
-  },
-  "White Noise": {
-    prompt: "Pure smooth white noise static, consistent and even, like a fan or air conditioner humming steadily",
-    duration: 15,
-  },
-  Forest: {
-    prompt: "Peaceful forest ambience with birds singing and chirping, gentle wind rustling through leaves and trees, calm nature sounds for relaxation and studying",
-    duration: 22,
-  },
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+// Maps each SoundType to its storage file key
+const SOUND_FILE_MAP: Record<Exclude<SoundType, "Silence">, string> = {
+  Rain: "rain.mp3",
+  "Café": "cafe.mp3",
+  "White Noise": "whitenoise.mp3",
+  Forest: "forest.mp3",
 };
 
-// In-memory cache: sound type → base64 audio data URL
-const audioCache = new Map<string, string>();
+// Reverse map: SoundType → edge function key
+const SOUND_KEY_MAP: Record<Exclude<SoundType, "Silence">, string> = {
+  Rain: "rain",
+  "Café": "cafe",
+  "White Noise": "whitenoise",
+  Forest: "forest",
+};
 
-async function generateSound(soundType: Exclude<SoundType, "Silence">): Promise<string> {
-  // Check cache first
-  const cached = audioCache.get(soundType);
-  if (cached) return cached;
+function getPublicUrl(file: string): string {
+  return `${SUPABASE_URL}/storage/v1/object/public/ambient-sounds/${file}`;
+}
 
-  const config = SOUND_PROMPTS[soundType];
+/** Check if a sound file exists in storage by doing a HEAD request */
+async function soundExists(file: string): Promise<boolean> {
+  try {
+    const res = await fetch(getPublicUrl(file), { method: "HEAD" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
-  const response = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-sfx`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ prompt: config.prompt, duration: config.duration }),
-    }
-  );
+/** Trigger generation of a single sound via edge function */
+async function triggerGeneration(soundKey: string): Promise<string> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-ambient-sounds`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+    },
+    body: JSON.stringify({ sound: soundKey }),
+  });
 
-  if (!response.ok) {
-    throw new Error(`SFX generation failed: ${response.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(err.error || `Generation failed: ${res.status}`);
   }
 
-  const data = await response.json();
-  if (!data.success || !data.audioContent) {
-    throw new Error(data.error || "No audio returned");
-  }
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || "Generation failed");
 
-  const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
-  audioCache.set(soundType, audioUrl);
-  return audioUrl;
+  const result = data.results[soundKey];
+  if (!result?.url) throw new Error("No URL returned");
+  return result.url;
 }
 
 // ============================================================
@@ -97,7 +98,7 @@ export function useAmbientSound() {
     }
   }, []);
 
-  /** Start a specific sound */
+  /** Start a specific sound — loads from storage or generates if needed */
   const play = useCallback(
     async (sound: SoundType) => {
       stop();
@@ -109,18 +110,35 @@ export function useAmbientSound() {
 
       setLoading(true);
       try {
-        const audioUrl = await generateSound(sound);
-        const audio = new Audio(audioUrl);
+        const file = SOUND_FILE_MAP[sound];
+        const key = SOUND_KEY_MAP[sound];
+        let url = getPublicUrl(file);
+
+        // Check if sound exists in storage
+        const exists = await soundExists(file);
+
+        if (!exists) {
+          // Generate and upload to storage
+          toast({
+            title: "Generating sound…",
+            description: `Creating ${sound} ambience. This only happens once.`,
+          });
+          url = await triggerGeneration(key);
+        }
+
+        // Play from storage URL
+        const audio = new Audio(url);
         audio.loop = true;
         audio.volume = volume;
+        audio.crossOrigin = "anonymous";
         audioRef.current = audio;
         await audio.play();
         setActive(sound);
       } catch (err) {
-        console.error("Failed to generate/play sound:", err);
+        console.error("Failed to play sound:", err);
         toast({
-          title: "Sound generation failed",
-          description: "Could not generate ambient sound. Please try again.",
+          title: "Sound failed",
+          description: "Could not load ambient sound. Please try again.",
           variant: "destructive",
         });
         setActive(null);
@@ -134,7 +152,7 @@ export function useAmbientSound() {
   /** Toggle a sound on/off */
   const toggle = useCallback(
     (sound: SoundType) => {
-      if (loading) return; // Prevent double-clicks while loading
+      if (loading) return;
       if (active === sound) {
         stop();
         setActive(null);
