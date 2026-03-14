@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   ArrowRightLeft,
   ArrowLeft,
+  Upload,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
@@ -29,6 +30,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LectureUpload } from "@/components/LectureUpload";
 
 interface Folder {
   id: string;
@@ -59,7 +61,8 @@ export default function Notes() {
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null); // folder id or "uncategorized"
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch folders and notes
@@ -392,6 +395,13 @@ export default function Notes() {
               New Note
             </button>
             <button
+              onClick={() => setShowUpload(true)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              title="Import Lecture"
+            >
+              <Upload size={13} />
+            </button>
+            <button
               onClick={createFolder}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
               title="New Folder"
@@ -583,6 +593,24 @@ export default function Notes() {
           <StudySounds compact />
         </div>
       </div>
+      <LectureUpload
+        open={showUpload}
+        onOpenChange={setShowUpload}
+        folderId={null}
+        onNoteCreated={async (noteId) => {
+          // Reload notes and select the new one
+          const { data } = await supabase
+            .from("notes")
+            .select("*")
+            .eq("user_id", user!.id)
+            .order("updated_at", { ascending: false });
+          if (data) {
+            setNotes(data);
+            const created = data.find((n: any) => n.id === noteId);
+            if (created) selectNote(created);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -18,6 +18,29 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 Do not include any text before or after the JSON array.`,
 
   practice: `You are an exam prep assistant. Generate practice questions from the following note content. Create a mix of short answer and conceptual questions. For each question, provide the answer. Use markdown formatting with numbered questions and clearly labeled answers.`,
+
+  generate_notes: `You are an expert note-taking assistant for technical students. Given raw lecture content, transcript, or document text, transform it into well-structured study notes. Use this TipTap-compatible JSON format:
+
+Return ONLY a valid JSON object with this structure:
+{"type":"doc","content":[...nodes]}
+
+Supported node types:
+- {"type":"heading","attrs":{"level":1|2|3},"content":[{"type":"text","text":"..."}]}
+- {"type":"paragraph","content":[{"type":"text","text":"..."}]} or {"type":"paragraph","content":[{"type":"text","marks":[{"type":"bold"}],"text":"..."},{"type":"text","text":"..."}]}
+- {"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}]}
+- {"type":"orderedList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}]}
+- {"type":"codeBlock","attrs":{"language":"python"},"content":[{"type":"text","text":"..."}]}
+- {"type":"blockquote","content":[{"type":"paragraph","content":[{"type":"text","text":"..."}]}]}
+
+Guidelines:
+- Start with an H1 title summarizing the topic
+- Use H2 for major sections, H3 for subsections
+- Use bullet lists for key points and definitions
+- Use code blocks for any code snippets (with correct language)
+- Bold important terms and concepts
+- Add a "Key Takeaways" section at the end
+- Be thorough but concise — capture everything a student needs to study
+- Do not include any text before or after the JSON object.`,
 };
 
 serve(async (req) => {
@@ -51,6 +74,7 @@ serve(async (req) => {
     }
 
     const isFlashcards = action === "flashcards";
+    const isGenerateNotes = action === "generate_notes";
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -63,7 +87,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: aiMessages,
-          stream: !isFlashcards,
+          stream: !(isFlashcards || isGenerateNotes),
         }),
       }
     );
@@ -89,10 +113,10 @@ serve(async (req) => {
       );
     }
 
-    if (isFlashcards) {
+    if (isFlashcards || isGenerateNotes) {
       // Non-streaming: return full response for JSON parsing
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "[]";
+      const content = data.choices?.[0]?.message?.content || (isFlashcards ? "[]" : "{}");
       return new Response(JSON.stringify({ content }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
