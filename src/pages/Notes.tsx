@@ -38,7 +38,7 @@ interface Folder {
 interface Note {
   id: string;
   title: string;
-  content: { body: string } | null;
+  content: any;
   updated_at: string;
   folder_id: string | null;
 }
@@ -49,7 +49,7 @@ export default function Notes() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
   const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  const [editorContent, setEditorContent] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saveTimeout, setSaveTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
