@@ -102,7 +102,7 @@ function buildRain(ctx: AudioContext, master: GainNode): SoundGraph {
 
   const rumbleLP = ctx.createBiquadFilter();
   rumbleLP.type = "lowpass";
-  rumbleLP.frequency.value = 150; // Extremely low — pure bass rumble
+  rumbleLP.frequency.value = 150;
   rumbleLP.Q.value = 0.7;
 
   const rumbleGain = ctx.createGain();
@@ -131,7 +131,7 @@ function buildRain(ctx: AudioContext, master: GainNode): SoundGraph {
   bodyGain.connect(master);
   nodes.push(body);
 
-  // === Layer 3: Faint high patter (white noise → narrow bandpass at 3kHz, very quiet) ===
+  // === Layer 3: Faint high patter (white noise → narrow bandpass at 3kHz) ===
   const patter = ctx.createBufferSource();
   patter.buffer = makeNoiseBuffer(ctx, 3, "white");
   patter.loop = true;
@@ -142,17 +142,74 @@ function buildRain(ctx: AudioContext, master: GainNode): SoundGraph {
   patterBP.Q.value = 2;
 
   const patterGain = ctx.createGain();
-  patterGain.gain.value = 0.04; // Very faint — just adds texture
+  patterGain.gain.value = 0.04;
 
   patter.connect(patterBP);
   patterBP.connect(patterGain);
   patterGain.connect(master);
   nodes.push(patter);
 
-  // === LFO: Slow intensity modulation (rain ebbs and flows) ===
+  // === Layer 4: THUNDER — Brown noise with very low pass, modulated by ultra-slow LFO ===
+  // Creates periodic distant thunder rumbles that swell and fade
+  const thunder = ctx.createBufferSource();
+  thunder.buffer = makeNoiseBuffer(ctx, 8, "brown");
+  thunder.loop = true;
+
+  const thunderLP = ctx.createBiquadFilter();
+  thunderLP.type = "lowpass";
+  thunderLP.frequency.value = 80; // Sub-bass — deep, distant thunder
+  thunderLP.Q.value = 1.2;
+
+  const thunderGain = ctx.createGain();
+  thunderGain.gain.value = 0; // Starts silent, LFO brings it in
+
+  thunder.connect(thunderLP);
+  thunderLP.connect(thunderGain);
+  thunderGain.connect(master);
+  nodes.push(thunder);
+
+  // Thunder LFO — very slow (0.03Hz ≈ 33s cycle) so thunder swells in/out naturally
+  const thunderLFO = ctx.createOscillator();
+  thunderLFO.type = "sine";
+  thunderLFO.frequency.value = 0.03;
+  const thunderLFOGain = ctx.createGain();
+  thunderLFOGain.gain.value = 0.6; // Thunder peaks at 0.6 volume
+  thunderLFO.connect(thunderLFOGain);
+  thunderLFOGain.connect(thunderGain.gain);
+  nodes.push(thunderLFO);
+
+  // === Layer 5: Secondary thunder crack — higher band for "crack" texture ===
+  const crack = ctx.createBufferSource();
+  crack.buffer = makeNoiseBuffer(ctx, 4, "brown");
+  crack.loop = true;
+
+  const crackBP = ctx.createBiquadFilter();
+  crackBP.type = "bandpass";
+  crackBP.frequency.value = 200;
+  crackBP.Q.value = 1.5;
+
+  const crackGain = ctx.createGain();
+  crackGain.gain.value = 0;
+
+  crack.connect(crackBP);
+  crackBP.connect(crackGain);
+  crackGain.connect(master);
+  nodes.push(crack);
+
+  // Crack LFO — slightly offset frequency so thunder layers don't peak together
+  const crackLFO = ctx.createOscillator();
+  crackLFO.type = "sine";
+  crackLFO.frequency.value = 0.022; // ~45s cycle, out of phase with main thunder
+  const crackLFOGain = ctx.createGain();
+  crackLFOGain.gain.value = 0.15;
+  crackLFO.connect(crackLFOGain);
+  crackLFOGain.connect(crackGain.gain);
+  nodes.push(crackLFO);
+
+  // === Rain intensity LFO ===
   const lfo = ctx.createOscillator();
   lfo.type = "sine";
-  lfo.frequency.value = 0.06; // ~16 second cycle
+  lfo.frequency.value = 0.06;
   const lfoGain = ctx.createGain();
   lfoGain.gain.value = 0.2;
   lfo.connect(lfoGain);
@@ -165,6 +222,10 @@ function buildRain(ctx: AudioContext, master: GainNode): SoundGraph {
       rumble.start();
       body.start();
       patter.start();
+      thunder.start();
+      crack.start();
+      thunderLFO.start();
+      crackLFO.start();
       lfo.start();
     },
   };
