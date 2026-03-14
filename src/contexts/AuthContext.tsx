@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRoleState] = useState<UserRole>("student");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Load profile role from database
   const loadProfile = useCallback(async (userId: string) => {
