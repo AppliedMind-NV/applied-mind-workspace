@@ -251,7 +251,7 @@ function buildCafe(ctx: AudioContext, master: GainNode): SoundGraph {
   const f1 = ctx.createBiquadFilter();
   f1.type = "bandpass";
   f1.frequency.value = 400;
-  f1.Q.value = 2.5; // Narrow — isolates vocal warmth
+  f1.Q.value = 2.5;
 
   const f1Gain = ctx.createGain();
   f1Gain.gain.value = 0.5;
@@ -269,7 +269,7 @@ function buildCafe(ctx: AudioContext, master: GainNode): SoundGraph {
   const f2 = ctx.createBiquadFilter();
   f2.type = "bandpass";
   f2.frequency.value = 1800;
-  f2.Q.value = 3; // Narrow — speech-like character
+  f2.Q.value = 3;
 
   const f2Gain = ctx.createGain();
   f2Gain.gain.value = 0.18;
@@ -279,7 +279,59 @@ function buildCafe(ctx: AudioContext, master: GainNode): SoundGraph {
   f2Gain.connect(master);
   nodes.push(speech);
 
-  // === Layer 3: Cup clinks — white noise through very narrow 5kHz band ===
+  // === Layer 3: Distinct Voice A — "oo" vowel formant (male voice, ~300Hz + 700Hz) ===
+  // Simulates a deeper male voice in the background
+  const voiceA = ctx.createBufferSource();
+  voiceA.buffer = makeNoiseBuffer(ctx, 7, "pink");
+  voiceA.loop = true;
+
+  const voiceAF1 = ctx.createBiquadFilter();
+  voiceAF1.type = "bandpass";
+  voiceAF1.frequency.value = 300; // Male chest fundamental
+  voiceAF1.Q.value = 4;
+
+  const voiceAF2 = ctx.createBiquadFilter();
+  voiceAF2.type = "bandpass";
+  voiceAF2.frequency.value = 700; // First formant for "oo"
+  voiceAF2.Q.value = 3;
+
+  const voiceAGain = ctx.createGain();
+  voiceAGain.gain.value = 0.12;
+
+  voiceA.connect(voiceAF1);
+  voiceAF1.connect(voiceAGain);
+  voiceA.connect(voiceAF2);
+  voiceAF2.connect(voiceAGain);
+  voiceAGain.connect(master);
+  nodes.push(voiceA);
+
+  // === Layer 4: Distinct Voice B — "ah" vowel formant (female voice, ~500Hz + 2500Hz) ===
+  // Simulates a higher female voice, creating conversation contrast
+  const voiceB = ctx.createBufferSource();
+  voiceB.buffer = makeNoiseBuffer(ctx, 4, "pink");
+  voiceB.loop = true;
+
+  const voiceBF1 = ctx.createBiquadFilter();
+  voiceBF1.type = "bandpass";
+  voiceBF1.frequency.value = 500; // Female chest fundamental
+  voiceBF1.Q.value = 4;
+
+  const voiceBF2 = ctx.createBiquadFilter();
+  voiceBF2.type = "bandpass";
+  voiceBF2.frequency.value = 2500; // "ah" presence formant
+  voiceBF2.Q.value = 3.5;
+
+  const voiceBGain = ctx.createGain();
+  voiceBGain.gain.value = 0.08;
+
+  voiceB.connect(voiceBF1);
+  voiceBF1.connect(voiceBGain);
+  voiceB.connect(voiceBF2);
+  voiceBF2.connect(voiceBGain);
+  voiceBGain.connect(master);
+  nodes.push(voiceB);
+
+  // === Layer 5: Cup clinks — white noise through very narrow 5kHz band ===
   const clink = ctx.createBufferSource();
   clink.buffer = makeNoiseBuffer(ctx, 2, "white");
   clink.loop = true;
@@ -287,10 +339,10 @@ function buildCafe(ctx: AudioContext, master: GainNode): SoundGraph {
   const clinkBP = ctx.createBiquadFilter();
   clinkBP.type = "bandpass";
   clinkBP.frequency.value = 5000;
-  clinkBP.Q.value = 6; // Very narrow — metallic ping character
+  clinkBP.Q.value = 6;
 
   const clinkGain = ctx.createGain();
-  clinkGain.gain.value = 0.015; // Barely audible — just texture
+  clinkGain.gain.value = 0.015;
 
   clink.connect(clinkBP);
   clinkBP.connect(clinkGain);
@@ -300,7 +352,7 @@ function buildCafe(ctx: AudioContext, master: GainNode): SoundGraph {
   // === LFO 1: Slow conversation swell on vocal murmur ===
   const lfo1 = ctx.createOscillator();
   lfo1.type = "sine";
-  lfo1.frequency.value = 0.3; // ~3 second cycle — conversation pace
+  lfo1.frequency.value = 0.3;
   const lfo1G = ctx.createGain();
   lfo1G.gain.value = 0.2;
   lfo1.connect(lfo1G);
@@ -310,21 +362,45 @@ function buildCafe(ctx: AudioContext, master: GainNode): SoundGraph {
   // === LFO 2: Faster cross-talk rhythm on speech layer ===
   const lfo2 = ctx.createOscillator();
   lfo2.type = "sine";
-  lfo2.frequency.value = 0.7; // ~1.4 second cycle
+  lfo2.frequency.value = 0.7;
   const lfo2G = ctx.createGain();
   lfo2G.gain.value = 0.1;
   lfo2.connect(lfo2G);
   lfo2G.connect(f2Gain.gain);
   nodes.push(lfo2);
 
+  // === LFO 3: Voice A rhythm — slower "talking pace" modulation ===
+  const lfo3 = ctx.createOscillator();
+  lfo3.type = "sine";
+  lfo3.frequency.value = 0.15; // ~6.5s cycle — slow sentence cadence
+  const lfo3G = ctx.createGain();
+  lfo3G.gain.value = 0.08;
+  lfo3.connect(lfo3G);
+  lfo3G.connect(voiceAGain.gain);
+  nodes.push(lfo3);
+
+  // === LFO 4: Voice B rhythm — offset "response" cadence ===
+  const lfo4 = ctx.createOscillator();
+  lfo4.type = "sine";
+  lfo4.frequency.value = 0.45; // ~2.2s cycle — quicker interjections
+  const lfo4G = ctx.createGain();
+  lfo4G.gain.value = 0.06;
+  lfo4.connect(lfo4G);
+  lfo4G.connect(voiceBGain.gain);
+  nodes.push(lfo4);
+
   return {
     nodes,
     start: () => {
       murmur.start();
       speech.start();
+      voiceA.start();
+      voiceB.start();
       clink.start();
       lfo1.start();
       lfo2.start();
+      lfo3.start();
+      lfo4.start();
     },
   };
 }
