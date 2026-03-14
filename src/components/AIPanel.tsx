@@ -156,6 +156,11 @@ export function AIPanel({ onClose }: AIPanelProps) {
       return;
     }
 
+    if (action === "practice") {
+      await generatePracticeQuestions();
+      return;
+    }
+
     sendMessage(label, action);
   };
 
@@ -227,6 +232,85 @@ export function AIPanel({ onClose }: AIPanelProps) {
       toast({
         title: "Flashcards created",
         description: `${cards.length} flashcards saved from "${activeNoteTitle}"`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Generation failed",
+        description: err.message,
+        variant: "destructive",
+      });
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `❌ ${err.message}` },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const generatePracticeQuestions = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: "Generate practice questions from this note" },
+    ]);
+
+    try {
+      const resp = await fetch(NOTE_AI_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "Generate practice questions from this note" }],
+          action: "practice_json",
+          noteContent: activeNoteText,
+          noteTitle: activeNoteTitle,
+        }),
+      });
+
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to generate practice questions");
+      }
+
+      const data = await resp.json();
+      let questions: Array<{ question: string; answer: string }> = [];
+
+      try {
+        const raw = data.content.trim();
+        const match = raw.match(/\[[\s\S]*\]/);
+        if (match) questions = JSON.parse(match[0]);
+      } catch {
+        throw new Error("Failed to parse practice questions response");
+      }
+
+      if (questions.length === 0) throw new Error("No questions generated");
+
+      const inserts = questions.map((q) => ({
+        user_id: user.id,
+        question: q.question,
+        answer: q.answer,
+      }));
+
+      const { error } = await supabase.from("practice_questions").insert(inserts);
+      if (error) throw error;
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `✅ **${questions.length} practice questions created!**\n\n${questions
+            .slice(0, 3)
+            .map((q, i) => `**${i + 1}.** ${q.question}\n> ${q.answer}`)
+            .join("\n\n")}${questions.length > 3 ? `\n\n…and ${questions.length - 3} more. View them all in **Practice**.` : ""}`,
+        },
+      ]);
+
+      toast({
+        title: "Practice questions created",
+        description: `${questions.length} questions saved from "${activeNoteTitle}"`,
       });
     } catch (err: any) {
       toast({
