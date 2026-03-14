@@ -56,7 +56,7 @@ export default function Dashboard() {
           supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id),
           supabase.from("study_sessions").select("duration_minutes").eq("user_id", user.id).gte("started_at", weekAgo),
           supabase.from("notes").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(5),
-          supabase.from("study_sessions").select("started_at").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
+          supabase.from("study_sessions").select("started_at, duration_minutes").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
         ]);
 
       setNotesCount(notesRes.count ?? 0);
