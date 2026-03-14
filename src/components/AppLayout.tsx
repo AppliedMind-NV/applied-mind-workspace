@@ -39,10 +39,12 @@ export function AppLayout() {
 
             <button
               onClick={() => setAiPanelOpen(!aiPanelOpen)}
-              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
+              className="flex items-center gap-1.5 p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
               aria-label="Toggle AI panel"
+              title="Toggle AI panel (Ctrl+K)"
             >
               {aiPanelOpen ? <PanelRightClose size={16} /> : <PanelRight size={16} />}
+              <kbd className="hidden sm:inline text-[9px] px-1 py-0.5 rounded border bg-muted text-muted-foreground font-mono">⌘K</kbd>
             </button>
           </header>
 
