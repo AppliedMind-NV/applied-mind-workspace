@@ -3,7 +3,7 @@ import { useAmbientSound } from "@/hooks/useAmbientSound";
 import { Slider } from "@/components/ui/slider";
 
 type SoundOption = {
-  id: "Rain" | "Café" | "White Noise" | "Silence";
+  id: "Rain" | "Café" | "White Noise" | "Forest" | "Silence";
   label: string;
   icon: typeof CloudRain;
   activeLabel: string;
