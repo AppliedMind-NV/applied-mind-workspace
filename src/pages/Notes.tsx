@@ -233,8 +233,47 @@ export default function Notes() {
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    setDraggedNoteId(noteId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", noteId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedNoteId(null);
+    setDropTargetId(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetId(targetId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if leaving the drop zone entirely
+    const related = e.relatedTarget as HTMLElement | null;
+    if (!e.currentTarget.contains(related)) {
+      setDropTargetId(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault();
+    if (draggedNoteId) {
+      moveNote(draggedNoteId, folderId);
+    }
+    setDraggedNoteId(null);
+    setDropTargetId(null);
+  };
+
   const NoteItem = ({ note }: { note: Note }) => (
-    <div className="group relative">
+    <div
+      className={`group relative ${draggedNoteId === note.id ? "opacity-40" : ""}`}
+      draggable
+      onDragStart={(e) => handleDragStart(e, note.id)}
+      onDragEnd={handleDragEnd}
+    >
       <button
         onClick={() => selectNote(note)}
         className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
