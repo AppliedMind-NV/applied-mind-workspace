@@ -234,6 +234,33 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Activity Heatmap */}
+      <div className="rounded-lg border bg-card p-4 mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Flame size={14} className="text-primary" />
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Activity</span>
+        </div>
+        {loading ? (
+          <p className="text-sm text-muted-foreground px-3 py-2">Loading…</p>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <WeeklyHeatmap studyDates={studyDates} minutesPerDay={minutesPerDay} />
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[10px] text-muted-foreground">Less</span>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className={`w-[10px] h-[10px] rounded-[2px] ${
+                    ["bg-muted", "bg-primary/20", "bg-primary/40", "bg-primary/60", "bg-primary/90"][i]
+                  }`}
+                />
+              ))}
+              <span className="text-[10px] text-muted-foreground">More</span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="rounded-lg border bg-card p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
