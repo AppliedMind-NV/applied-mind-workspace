@@ -13,6 +13,7 @@ import {
   Flame,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import WeeklyHeatmap from "@/components/WeeklyHeatmap";
 
 const quickActions = [
   { label: "New Note", icon: FileText, color: "text-primary", path: "/notes" },
