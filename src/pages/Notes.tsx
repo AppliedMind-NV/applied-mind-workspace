@@ -46,6 +46,7 @@ interface Note {
 
 export default function Notes() {
   const { user } = useAuth();
+  const { setActiveNote } = useNoteContext();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
