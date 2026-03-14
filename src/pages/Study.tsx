@@ -212,6 +212,24 @@ export default function Study() {
             </button>
           ))}
         </div>
+        {/* Volume Control */}
+        {activeSound && activeSound !== "Silence" && (
+          <div className="flex items-center justify-center gap-3 mt-4">
+            <Volume2 size={14} className="text-muted-foreground" />
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volume}
+              onChange={(e) => setVolume(parseFloat(e.target.value))}
+              className="w-32 h-1 accent-primary bg-muted rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+            />
+            <span className="text-xs text-muted-foreground tabular-nums w-8">
+              {Math.round(volume * 100)}%
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
