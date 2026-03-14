@@ -9,7 +9,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   role: UserRole;
+  avatarUrl: string | null;
   setRole: (role: UserRole) => Promise<void>;
+  refreshAvatar: (url: string) => void;
   signOut: () => Promise<void>;
 }
 
