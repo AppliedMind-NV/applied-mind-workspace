@@ -118,7 +118,7 @@ serve(async (req) => {
       );
     }
 
-    if (isFlashcards || isGenerateNotes) {
+    if (isFlashcards || isGenerateNotes || isPracticeJson) {
       // Non-streaming: return full response for JSON parsing
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || (isFlashcards ? "[]" : "{}");
