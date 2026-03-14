@@ -536,22 +536,22 @@ export default function Notes() {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {selectedNote ? (
-          <div className="flex-1 p-8 max-w-3xl">
+          <div className="flex-1 flex flex-col p-8 max-w-3xl overflow-hidden">
             <input
               type="text"
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
-              className="w-full text-2xl font-semibold bg-transparent outline-none mb-4 placeholder:text-muted-foreground"
+              className="w-full text-2xl font-semibold bg-transparent outline-none mb-4 placeholder:text-muted-foreground shrink-0"
               placeholder="Untitled"
             />
-            <textarea
-              value={body}
-              onChange={(e) => handleBodyChange(e.target.value)}
-              className="w-full flex-1 min-h-[400px] text-base leading-relaxed text-foreground/90 bg-transparent outline-none resize-none"
-              placeholder="Start typing your notes… Use ⌘K to invoke the AI assistant."
-            />
+            <div className="flex-1 min-h-0">
+              <NoteEditor
+                content={editorContent}
+                onUpdate={handleEditorUpdate}
+              />
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -563,7 +563,7 @@ export default function Notes() {
         )}
 
         {/* Compact study sounds at bottom of editor */}
-        <div className="border-t px-4 py-3 flex justify-center">
+        <div className="border-t px-4 py-3 flex justify-center shrink-0">
           <StudySounds compact />
         </div>
       </div>
