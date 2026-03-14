@@ -24,6 +24,7 @@ const lowlight = createLowlight(common);
 interface NoteEditorProps {
   content: any;
   onUpdate: (json: any) => void;
+  onSelectionChange?: (text: string) => void;
 }
 
 export default function NoteEditor({ content, onUpdate }: NoteEditorProps) {
