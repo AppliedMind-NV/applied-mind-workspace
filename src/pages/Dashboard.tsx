@@ -67,8 +67,18 @@ export default function Dashboard() {
       setSessionsCount(sessions.length);
       setStudyMinutes(sessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0));
 
-      // Calculate streak from unique study days
+      // Build study dates and minutes-per-day for heatmap
       const streakDays = streakRes.data ?? [];
+      const datesSet = new Set<string>();
+      const minsMap = new Map<string, number>();
+      for (const s of streakDays) {
+        const dateKey = new Date(s.started_at).toISOString().split("T")[0];
+        datesSet.add(dateKey);
+        minsMap.set(dateKey, (minsMap.get(dateKey) ?? 0) + (s.duration_minutes ?? 0));
+      }
+      setStudyDates(datesSet);
+      setMinutesPerDay(minsMap);
+
       const uniqueDays = new Set(streakDays.map((s) => new Date(s.started_at).toLocaleDateString()));
       const sortedDays = Array.from(uniqueDays)
         .map((d) => new Date(d))
