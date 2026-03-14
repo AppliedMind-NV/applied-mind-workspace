@@ -90,11 +90,8 @@ export default function SettingsPage() {
             <User size={14} className="text-primary" />
             <h2 className="text-sm font-medium">Profile</h2>
           </div>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Email</label>
-              <p className="text-sm">{user?.email}</p>
-            </div>
+          <div className="space-y-4">
+            <AvatarUpload />
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Role</label>
               <div className="flex gap-2">
