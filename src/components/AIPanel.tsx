@@ -19,6 +19,7 @@ async function streamChat({
   action,
   noteContent,
   noteTitle,
+  selectedText,
   onDelta,
   onDone,
   onError,
@@ -27,6 +28,7 @@ async function streamChat({
   action: string;
   noteContent: string;
   noteTitle: string;
+  selectedText?: string;
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (msg: string) => void;
@@ -37,7 +39,7 @@ async function streamChat({
       "Content-Type": "application/json",
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ messages, action, noteContent, noteTitle }),
+    body: JSON.stringify({ messages, action, noteContent, noteTitle, selectedText }),
   });
 
   if (!resp.ok) {
@@ -84,16 +86,66 @@ async function streamChat({
   onDone();
 }
 
+async function fetchNonStreaming({
+  messages,
+  action,
+  noteContent,
+  noteTitle,
+  selectedText,
+}: {
+  messages: Msg[];
+  action: string;
+  noteContent: string;
+  noteTitle: string;
+  selectedText?: string;
+}) {
+  const resp = await fetch(NOTE_AI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ messages, action, noteContent, noteTitle, selectedText }),
+  });
+
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    throw new Error(data.error || `Request failed (${resp.status})`);
+  }
+
+  return resp.json();
+}
+
+interface ActionDef {
+  key: string;
+  label: string;
+  emoji: string;
+  needsNote: boolean;
+  needsSelection?: boolean;
+  description: string;
+}
+
+const ALL_ACTIONS: ActionDef[] = [
+  { key: "summarize", label: "Summarize note", emoji: "📝", needsNote: true, description: "Get concise bullet-point summary" },
+  { key: "explain", label: "Explain concepts", emoji: "💡", needsNote: true, description: "Break down key ideas simply" },
+  { key: "simplify", label: "Simplify selected text", emoji: "🔄", needsNote: true, needsSelection: true, description: "Rewrite in simpler terms" },
+  { key: "explain_code", label: "Explain code block", emoji: "🧑‍💻", needsNote: true, needsSelection: true, description: "Line-by-line code explanation" },
+  { key: "related", label: "Related concepts", emoji: "🔗", needsNote: true, description: "Discover connected topics" },
+  { key: "flashcards", label: "Generate flashcards", emoji: "🗂️", needsNote: true, description: "Create spaced repetition cards" },
+  { key: "practice", label: "Practice questions", emoji: "❓", needsNote: true, description: "Generate exam-style questions" },
+];
+
 export function AIPanel({ onClose }: AIPanelProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { activeNoteTitle, activeNoteText } = useNoteContext();
+  const { activeNoteTitle, activeNoteText, selectedText } = useNoteContext();
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hasNote = activeNoteText.length > 0;
+  const hasSelection = selectedText.length > 0;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -102,11 +154,10 @@ export function AIPanel({ onClose }: AIPanelProps) {
   }, [messages]);
 
   const sendMessage = useCallback(
-    async (text: string, action: string = "chat") => {
+    async (text: string, action: string = "chat", extraSelectedText?: string) => {
       if (isLoading) return;
       const userMsg: Msg = { role: "user", content: text };
-      const updatedMessages = [...messages, userMsg];
-      setMessages(updatedMessages);
+      setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setIsLoading(true);
 
@@ -130,6 +181,7 @@ export function AIPanel({ onClose }: AIPanelProps) {
         action,
         noteContent: activeNoteText,
         noteTitle: activeNoteTitle,
+        selectedText: extraSelectedText,
         onDelta: upsertAssistant,
         onDone: () => setIsLoading(false),
         onError: (msg) => {
@@ -138,190 +190,109 @@ export function AIPanel({ onClose }: AIPanelProps) {
         },
       });
     },
-    [messages, isLoading, activeNoteText, activeNoteTitle]
+    [isLoading, activeNoteText, activeNoteTitle]
   );
 
-  const handleAction = async (action: string, label: string) => {
-    if (!hasNote) {
-      toast({
-        title: "No note selected",
-        description: "Open a note first to use this action.",
-        variant: "destructive",
-      });
+  const handleAction = async (action: ActionDef) => {
+    if (action.needsNote && !hasNote) {
+      toast({ title: "No note selected", description: "Open a note first.", variant: "destructive" });
+      return;
+    }
+    if (action.needsSelection && !hasSelection) {
+      toast({ title: "No text selected", description: "Select text in the editor first.", variant: "destructive" });
       return;
     }
 
-    if (action === "flashcards") {
+    if (action.key === "flashcards") {
       await generateFlashcards();
       return;
     }
-
-    if (action === "practice") {
+    if (action.key === "practice") {
       await generatePracticeQuestions();
       return;
     }
 
-    sendMessage(label, action);
+    // For selection-based actions, include selected text context
+    const sel = action.needsSelection ? selectedText : undefined;
+    const label = action.needsSelection
+      ? `${action.label}: "${selectedText.slice(0, 80)}${selectedText.length > 80 ? "…" : ""}"`
+      : action.label;
+    sendMessage(label, action.key, sel);
   };
 
   const generateFlashcards = async () => {
     if (!user) return;
     setIsLoading(true);
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: "Generate flashcards from this note" },
-    ]);
+    setMessages((prev) => [...prev, { role: "user", content: "Generate flashcards from this note" }]);
 
     try {
-      const resp = await fetch(NOTE_AI_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "Generate flashcards from this note" }],
-          action: "flashcards",
-          noteContent: activeNoteText,
-          noteTitle: activeNoteTitle,
-        }),
+      const data = await fetchNonStreaming({
+        messages: [{ role: "user", content: "Generate flashcards from this note" }],
+        action: "flashcards",
+        noteContent: activeNoteText,
+        noteTitle: activeNoteTitle,
       });
 
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to generate flashcards");
-      }
-
-      const data = await resp.json();
       let cards: Array<{ front: string; back: string }> = [];
-
       try {
-        const raw = data.content.trim();
-        // Extract JSON array from possible markdown code fences
-        const match = raw.match(/\[[\s\S]*\]/);
+        const match = data.content.trim().match(/\[[\s\S]*\]/);
         if (match) cards = JSON.parse(match[0]);
-      } catch {
-        throw new Error("Failed to parse flashcard response");
-      }
+      } catch { throw new Error("Failed to parse flashcard response"); }
 
-      if (cards.length === 0) {
-        throw new Error("No flashcards generated");
-      }
+      if (cards.length === 0) throw new Error("No flashcards generated");
 
-      // Save flashcards to database
-      const inserts = cards.map((c) => ({
-        user_id: user.id,
-        front: c.front,
-        back: c.back,
-      }));
-
-      const { error } = await supabase.from("flashcards").insert(inserts);
+      const { error } = await supabase.from("flashcards").insert(
+        cards.map((c) => ({ user_id: user.id, front: c.front, back: c.back }))
+      );
       if (error) throw error;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `✅ **${cards.length} flashcards created!**\n\nHere's a preview:\n\n${cards
-            .slice(0, 3)
-            .map((c, i) => `**${i + 1}.** ${c.front}\n> ${c.back}`)
-            .join("\n\n")}${cards.length > 3 ? `\n\n…and ${cards.length - 3} more. View them all in **Flashcards**.` : ""}`,
-        },
-      ]);
-
-      toast({
-        title: "Flashcards created",
-        description: `${cards.length} flashcards saved from "${activeNoteTitle}"`,
-      });
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `✅ **${cards.length} flashcards created!**\n\n${cards.slice(0, 3).map((c, i) => `**${i + 1}.** ${c.front}\n> ${c.back}`).join("\n\n")}${cards.length > 3 ? `\n\n…and ${cards.length - 3} more. View them all in **Flashcards**.` : ""}`,
+      }]);
+      toast({ title: "Flashcards created", description: `${cards.length} flashcards saved from "${activeNoteTitle}"` });
     } catch (err: any) {
-      toast({
-        title: "Generation failed",
-        description: err.message,
-        variant: "destructive",
-      });
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `❌ ${err.message}` },
-      ]);
+      toast({ title: "Generation failed", description: err.message, variant: "destructive" });
+      setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${err.message}` }]);
     } finally {
       setIsLoading(false);
     }
   };
+
   const generatePracticeQuestions = async () => {
     if (!user) return;
     setIsLoading(true);
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: "Generate practice questions from this note" },
-    ]);
+    setMessages((prev) => [...prev, { role: "user", content: "Generate practice questions from this note" }]);
 
     try {
-      const resp = await fetch(NOTE_AI_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [{ role: "user", content: "Generate practice questions from this note" }],
-          action: "practice_json",
-          noteContent: activeNoteText,
-          noteTitle: activeNoteTitle,
-        }),
+      const data = await fetchNonStreaming({
+        messages: [{ role: "user", content: "Generate practice questions from this note" }],
+        action: "practice_json",
+        noteContent: activeNoteText,
+        noteTitle: activeNoteTitle,
       });
 
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to generate practice questions");
-      }
-
-      const data = await resp.json();
       let questions: Array<{ question: string; answer: string }> = [];
-
       try {
-        const raw = data.content.trim();
-        const match = raw.match(/\[[\s\S]*\]/);
+        const match = data.content.trim().match(/\[[\s\S]*\]/);
         if (match) questions = JSON.parse(match[0]);
-      } catch {
-        throw new Error("Failed to parse practice questions response");
-      }
+      } catch { throw new Error("Failed to parse practice questions response"); }
 
       if (questions.length === 0) throw new Error("No questions generated");
 
-      const inserts = questions.map((q) => ({
-        user_id: user.id,
-        question: q.question,
-        answer: q.answer,
-      }));
-
-      const { error } = await supabase.from("practice_questions").insert(inserts);
+      const { error } = await supabase.from("practice_questions").insert(
+        questions.map((q) => ({ user_id: user.id, question: q.question, answer: q.answer }))
+      );
       if (error) throw error;
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `✅ **${questions.length} practice questions created!**\n\n${questions
-            .slice(0, 3)
-            .map((q, i) => `**${i + 1}.** ${q.question}\n> ${q.answer}`)
-            .join("\n\n")}${questions.length > 3 ? `\n\n…and ${questions.length - 3} more. View them all in **Practice**.` : ""}`,
-        },
-      ]);
-
-      toast({
-        title: "Practice questions created",
-        description: `${questions.length} questions saved from "${activeNoteTitle}"`,
-      });
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: `✅ **${questions.length} practice questions created!**\n\n${questions.slice(0, 3).map((q, i) => `**${i + 1}.** ${q.question}\n> ${q.answer}`).join("\n\n")}${questions.length > 3 ? `\n\n…and ${questions.length - 3} more. View them all in **Practice**.` : ""}`,
+      }]);
+      toast({ title: "Practice questions created", description: `${questions.length} questions saved from "${activeNoteTitle}"` });
     } catch (err: any) {
-      toast({
-        title: "Generation failed",
-        description: err.message,
-        variant: "destructive",
-      });
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `❌ ${err.message}` },
-      ]);
+      toast({ title: "Generation failed", description: err.message, variant: "destructive" });
+      setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${err.message}` }]);
     } finally {
       setIsLoading(false);
     }
@@ -333,16 +304,15 @@ export function AIPanel({ onClose }: AIPanelProps) {
     sendMessage(input.trim());
   };
 
-  const clearChat = () => {
-    setMessages([]);
-  };
+  const clearChat = () => setMessages([]);
 
-  const actions = [
-    { key: "summarize", label: "Summarize note", emoji: "📝" },
-    { key: "explain", label: "Explain concepts", emoji: "💡" },
-    { key: "flashcards", label: "Generate flashcards", emoji: "🗂️" },
-    { key: "practice", label: "Practice questions", emoji: "❓" },
-  ];
+  // Filter actions based on context
+  const visibleActions = ALL_ACTIONS.filter((a) => {
+    if (a.needsSelection) return hasNote && hasSelection;
+    return true;
+  });
+
+  const quickActions = ALL_ACTIONS.filter((a) => !a.needsSelection);
 
   return (
     <aside className="w-80 border-l bg-sidebar flex flex-col shrink-0 animate-slide-in-right">
@@ -354,18 +324,11 @@ export function AIPanel({ onClose }: AIPanelProps) {
         </div>
         <div className="flex items-center gap-1">
           {messages.length > 0 && (
-            <button
-              onClick={clearChat}
-              className="p-1 rounded-md hover:bg-accent text-muted-foreground"
-              title="Clear chat"
-            >
+            <button onClick={clearChat} className="p-1 rounded-md hover:bg-accent text-muted-foreground" title="Clear chat">
               <Trash2 size={13} />
             </button>
           )}
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md hover:bg-accent text-muted-foreground"
-          >
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-accent text-muted-foreground">
             <X size={14} />
           </button>
         </div>
@@ -376,38 +339,44 @@ export function AIPanel({ onClose }: AIPanelProps) {
         <div className="px-4 py-2 border-b bg-primary/5 shrink-0">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Context</p>
           <p className="text-xs font-medium truncate text-foreground">{activeNoteTitle}</p>
+          {hasSelection && (
+            <p className="text-[10px] text-primary mt-0.5 truncate">
+              Selected: "{selectedText.slice(0, 60)}{selectedText.length > 60 ? "…" : ""}"
+            </p>
+          )}
         </div>
       )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-thin p-4 space-y-4">
         {messages.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-3">
-              <span className="text-primary text-lg">✦</span>
+          <div className="py-4">
+            <div className="text-center mb-4">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                <span className="text-primary text-lg">✦</span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-1">
+                {hasNote ? `Ready to help with "${activeNoteTitle}"` : "Select a note to get contextual help"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {hasNote ? "Use an action below or ask a question" : "Or ask a general question"}
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground mb-1">
-              {hasNote
-                ? `Ready to help with "${activeNoteTitle}"`
-                : "Select a note to get contextual help"}
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              {hasNote
-                ? "Use an action below or ask a question"
-                : "Or ask a general question"}
-            </p>
 
             {/* Action buttons */}
-            <div className="mt-4 space-y-1.5">
-              {actions.map((a) => (
+            <div className="space-y-1">
+              {visibleActions.map((a) => (
                 <button
                   key={a.key}
-                  onClick={() => handleAction(a.key, a.label)}
-                  disabled={isLoading || (!hasNote && a.key !== "chat")}
-                  className="w-full text-left text-xs px-3 py-2 rounded-md border hover:bg-accent transition-colors text-foreground flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => handleAction(a)}
+                  disabled={isLoading || (a.needsNote && !hasNote)}
+                  className="w-full text-left text-xs px-3 py-2 rounded-md border hover:bg-accent transition-colors text-foreground flex items-center gap-2.5 disabled:opacity-40 disabled:cursor-not-allowed group"
                 >
-                  <span>{a.emoji}</span>
-                  {a.label}
+                  <span className="text-sm">{a.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{a.label}</p>
+                    <p className="text-[10px] text-muted-foreground">{a.description}</p>
+                  </div>
                 </button>
               ))}
             </div>
@@ -416,11 +385,7 @@ export function AIPanel({ onClose }: AIPanelProps) {
           messages.map((msg, i) => (
             <div
               key={i}
-              className={`text-sm ${
-                msg.role === "user"
-                  ? "bg-accent rounded-lg px-3 py-2 ml-6"
-                  : "pr-2"
-              }`}
+              className={`text-sm ${msg.role === "user" ? "bg-accent rounded-lg px-3 py-2 ml-6" : "pr-2"}`}
             >
               {msg.role === "assistant" ? (
                 <div className="prose prose-sm dark:prose-invert max-w-none text-foreground [&_p]:my-1 [&_li]:my-0.5 [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_pre]:text-xs [&_pre]:bg-muted [&_pre]:rounded [&_pre]:p-2 [&_code]:text-xs [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_blockquote]:italic">
@@ -444,12 +409,22 @@ export function AIPanel({ onClose }: AIPanelProps) {
       {/* Quick actions when chat is active */}
       {messages.length > 0 && hasNote && (
         <div className="px-3 py-2 border-t flex gap-1 flex-wrap shrink-0">
-          {actions.map((a) => (
+          {quickActions.map((a) => (
             <button
               key={a.key}
-              onClick={() => handleAction(a.key, a.label)}
-              disabled={isLoading}
+              onClick={() => handleAction(a)}
+              disabled={isLoading || (a.needsNote && !hasNote)}
               className="text-[10px] px-2 py-1 rounded-md border hover:bg-accent transition-colors disabled:opacity-40"
+            >
+              {a.emoji} {a.label.split(" ")[0]}
+            </button>
+          ))}
+          {hasSelection && ALL_ACTIONS.filter((a) => a.needsSelection).map((a) => (
+            <button
+              key={a.key}
+              onClick={() => handleAction(a)}
+              disabled={isLoading}
+              className="text-[10px] px-2 py-1 rounded-md border border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors disabled:opacity-40 text-primary"
             >
               {a.emoji} {a.label.split(" ")[0]}
             </button>
