@@ -24,9 +24,10 @@ const lowlight = createLowlight(common);
 interface NoteEditorProps {
   content: any;
   onUpdate: (json: any) => void;
+  onSelectionChange?: (text: string) => void;
 }
 
-export default function NoteEditor({ content, onUpdate }: NoteEditorProps) {
+export default function NoteEditor({ content, onUpdate, onSelectionChange }: NoteEditorProps) {
   const isExternalUpdate = useRef(false);
 
   const editor = useEditor({
@@ -44,6 +45,11 @@ export default function NoteEditor({ content, onUpdate }: NoteEditorProps) {
       if (!isExternalUpdate.current) {
         onUpdate(editor.getJSON());
       }
+    },
+    onSelectionUpdate: ({ editor }) => {
+      const { from, to } = editor.state.selection;
+      const text = from !== to ? editor.state.doc.textBetween(from, to, " ") : "";
+      onSelectionChange?.(text);
     },
     editorProps: {
       attributes: {
