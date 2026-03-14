@@ -8,13 +8,13 @@ import {
   ChevronRight,
   ChevronDown,
   Pencil,
-  Check,
-  X,
   FolderPlus,
   MoreHorizontal,
   ArrowRightLeft,
+  ArrowLeft,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
+import NoteEditor from "@/components/NoteEditor";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
