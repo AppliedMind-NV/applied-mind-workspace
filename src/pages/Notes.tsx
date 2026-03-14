@@ -118,10 +118,20 @@ export default function Notes() {
     return { type: "doc", content: [] };
   };
 
+  // Extract plain text from TipTap JSON for AI context
+  const extractText = (node: any): string => {
+    if (!node) return "";
+    if (node.text) return node.text;
+    if (node.content) return node.content.map(extractText).join(node.type === "doc" ? "\n\n" : "\n");
+    return "";
+  };
+
   const selectNote = (note: Note) => {
     setSelectedNote(note.id);
     setTitle(note.title);
-    setEditorContent(migrateContent(note.content));
+    const migrated = migrateContent(note.content);
+    setEditorContent(migrated);
+    setActiveNote(note.title, extractText(migrated));
   };
 
   const autoSave = useCallback(
