@@ -378,7 +378,16 @@ export default function Notes() {
 
             return (
               <div key={folder.id}>
-                <div className="group flex items-center gap-1 rounded-md hover:bg-accent/50 transition-colors pr-1">
+              <div
+                className={`group flex items-center gap-1 rounded-md transition-colors pr-1 ${
+                  dropTargetId === folder.id
+                    ? "bg-primary/10 ring-1 ring-primary/30"
+                    : "hover:bg-accent/50"
+                }`}
+                onDragOver={(e) => handleDragOver(e, folder.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, folder.id)}
+              >
                   <button
                     onClick={() => toggleFolder(folder.id)}
                     className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
