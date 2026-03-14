@@ -593,6 +593,24 @@ export default function Notes() {
           <StudySounds compact />
         </div>
       </div>
+      <LectureUpload
+        open={showUpload}
+        onOpenChange={setShowUpload}
+        folderId={null}
+        onNoteCreated={async (noteId) => {
+          // Reload notes and select the new one
+          const { data } = await supabase
+            .from("notes")
+            .select("*")
+            .eq("user_id", user!.id)
+            .order("updated_at", { ascending: false });
+          if (data) {
+            setNotes(data);
+            const created = data.find((n: any) => n.id === noteId);
+            if (created) selectNote(created);
+          }
+        }}
+      />
     </div>
   );
 }
