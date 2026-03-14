@@ -19,6 +19,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNoteContext } from "@/contexts/NoteContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +46,7 @@ interface Note {
 
 export default function Notes() {
   const { user } = useAuth();
+  const { setActiveNote } = useNoteContext();
   const [folders, setFolders] = useState<Folder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
@@ -80,9 +82,7 @@ export default function Notes() {
         setNotes(notesRes.data as Note[]);
         if (!selectedNote && notesRes.data.length > 0) {
           const first = notesRes.data[0] as Note;
-          setSelectedNote(first.id);
-          setTitle(first.title);
-          setEditorContent(migrateContent(first.content));
+          selectNote(first);
         }
       }
       setLoading(false);
@@ -116,10 +116,20 @@ export default function Notes() {
     return { type: "doc", content: [] };
   };
 
+  // Extract plain text from TipTap JSON for AI context
+  const extractText = (node: any): string => {
+    if (!node) return "";
+    if (node.text) return node.text;
+    if (node.content) return node.content.map(extractText).join(node.type === "doc" ? "\n\n" : "\n");
+    return "";
+  };
+
   const selectNote = (note: Note) => {
     setSelectedNote(note.id);
     setTitle(note.title);
-    setEditorContent(migrateContent(note.content));
+    const migrated = migrateContent(note.content);
+    setEditorContent(migrated);
+    setActiveNote(note.title, extractText(migrated));
   };
 
   const autoSave = useCallback(
@@ -145,12 +155,18 @@ export default function Notes() {
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
-    if (selectedNote) autoSave(selectedNote, val, editorContent);
+    if (selectedNote) {
+      autoSave(selectedNote, val, editorContent);
+      setActiveNote(val, extractText(editorContent));
+    }
   };
 
   const handleEditorUpdate = (json: any) => {
     setEditorContent(json);
-    if (selectedNote) autoSave(selectedNote, title, json);
+    if (selectedNote) {
+      autoSave(selectedNote, title, json);
+      setActiveNote(title, extractText(json));
+    }
   };
 
   // Folder CRUD
