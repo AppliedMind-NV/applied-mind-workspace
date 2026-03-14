@@ -9,7 +9,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   role: UserRole;
+  avatarUrl: string | null;
   setRole: (role: UserRole) => Promise<void>;
+  refreshAvatar: (url: string) => void;
   signOut: () => Promise<void>;
 }
 
@@ -18,7 +20,9 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   role: "student",
+  avatarUrl: null,
   setRole: async () => {},
+  refreshAvatar: () => {},
   signOut: async () => {},
 });
 
@@ -28,16 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRoleState] = useState<UserRole>("student");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Load profile role from database
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, avatar_url")
       .eq("id", userId)
       .single();
     if (data?.role) {
       setRoleState(data.role as UserRole);
+    }
+    if (data?.avatar_url) {
+      setAvatarUrl(data.avatar_url as string);
     }
   }, []);
 
@@ -77,13 +85,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq("id", user.id);
   };
 
+  const refreshAvatar = (url: string) => setAvatarUrl(url);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoleState("student");
+    setAvatarUrl(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, setRole, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, avatarUrl, setRole, refreshAvatar, signOut }}>
       {children}
     </AuthContext.Provider>
   );
