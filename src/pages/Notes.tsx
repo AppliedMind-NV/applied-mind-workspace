@@ -1,4 +1,5 @@
 import { Plus, Search, FileText, Trash2 } from "lucide-react";
+import StudySounds from "@/components/StudySounds";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
