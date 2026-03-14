@@ -1,0 +1,201 @@
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import { common, createLowlight } from "lowlight";
+import { useEffect, useRef, useCallback } from "react";
+import {
+  Bold,
+  Italic,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  Code,
+  Quote,
+  Minus,
+  Undo,
+  Redo,
+} from "lucide-react";
+
+const lowlight = createLowlight(common);
+
+interface NoteEditorProps {
+  content: any;
+  onUpdate: (json: any) => void;
+}
+
+export default function NoteEditor({ content, onUpdate }: NoteEditorProps) {
+  const isExternalUpdate = useRef(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        codeBlock: false,
+      }),
+      CodeBlockLowlight.configure({ lowlight }),
+      Placeholder.configure({
+        placeholder: "Start typing your notes… Use the toolbar for formatting.",
+      }),
+    ],
+    content,
+    onUpdate: ({ editor }) => {
+      if (!isExternalUpdate.current) {
+        onUpdate(editor.getJSON());
+      }
+    },
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-0 py-2",
+      },
+    },
+  });
+
+  // When note changes externally (selecting a different note), update editor content
+  useEffect(() => {
+    if (editor && content !== undefined) {
+      const currentJSON = JSON.stringify(editor.getJSON());
+      const newJSON = JSON.stringify(content);
+      if (currentJSON !== newJSON) {
+        isExternalUpdate.current = true;
+        editor.commands.setContent(content || { type: "doc", content: [] });
+        isExternalUpdate.current = false;
+      }
+    }
+  }, [content, editor]);
+
+  if (!editor) return null;
+
+  const ToolbarButton = ({
+    onClick,
+    active,
+    children,
+    title,
+  }: {
+    onClick: () => void;
+    active?: boolean;
+    children: React.ReactNode;
+    title: string;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`p-1.5 rounded-md transition-colors ${
+        active
+          ? "bg-accent text-foreground"
+          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center gap-0.5 flex-wrap border-b pb-2 mb-3">
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive("bold")}
+          title="Bold"
+        >
+          <Bold size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive("italic")}
+          title="Italic"
+        >
+          <Italic size={14} />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          active={editor.isActive("heading", { level: 1 })}
+          title="Heading 1"
+        >
+          <Heading1 size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          active={editor.isActive("heading", { level: 2 })}
+          title="Heading 2"
+        >
+          <Heading2 size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          active={editor.isActive("heading", { level: 3 })}
+          title="Heading 3"
+        >
+          <Heading3 size={14} />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          active={editor.isActive("bulletList")}
+          title="Bullet List"
+        >
+          <List size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          active={editor.isActive("orderedList")}
+          title="Ordered List"
+        >
+          <ListOrdered size={14} />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          active={editor.isActive("codeBlock")}
+          title="Code Block"
+        >
+          <Code size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={editor.isActive("blockquote")}
+          title="Blockquote"
+        >
+          <Quote size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          title="Divider"
+        >
+          <Minus size={14} />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().undo().run()}
+          title="Undo"
+        >
+          <Undo size={14} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().redo().run()}
+          title="Redo"
+        >
+          <Redo size={14} />
+        </ToolbarButton>
+      </div>
+
+      {/* Editor */}
+      <div className="flex-1 overflow-auto scrollbar-thin">
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+}
