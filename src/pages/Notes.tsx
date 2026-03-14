@@ -55,6 +55,8 @@ export default function Notes() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null); // folder id or "uncategorized"
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch folders and notes
@@ -231,8 +233,47 @@ export default function Notes() {
     return `${Math.floor(hrs / 24)}d ago`;
   };
 
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    setDraggedNoteId(noteId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", noteId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedNoteId(null);
+    setDropTargetId(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTargetId(targetId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if leaving the drop zone entirely
+    const related = e.relatedTarget as HTMLElement | null;
+    if (!e.currentTarget.contains(related)) {
+      setDropTargetId(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault();
+    if (draggedNoteId) {
+      moveNote(draggedNoteId, folderId);
+    }
+    setDraggedNoteId(null);
+    setDropTargetId(null);
+  };
+
   const NoteItem = ({ note }: { note: Note }) => (
-    <div className="group relative">
+    <div
+      className={`group relative ${draggedNoteId === note.id ? "opacity-40" : ""}`}
+      draggable
+      onDragStart={(e) => handleDragStart(e, note.id)}
+      onDragEnd={handleDragEnd}
+    >
       <button
         onClick={() => selectNote(note)}
         className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
@@ -337,7 +378,16 @@ export default function Notes() {
 
             return (
               <div key={folder.id}>
-                <div className="group flex items-center gap-1 rounded-md hover:bg-accent/50 transition-colors pr-1">
+              <div
+                className={`group flex items-center gap-1 rounded-md transition-colors pr-1 ${
+                  dropTargetId === folder.id
+                    ? "bg-primary/10 ring-1 ring-primary/30"
+                    : "hover:bg-accent/50"
+                }`}
+                onDragOver={(e) => handleDragOver(e, folder.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, folder.id)}
+              >
                   <button
                     onClick={() => toggleFolder(folder.id)}
                     className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
@@ -427,7 +477,16 @@ export default function Notes() {
 
           {/* Uncategorized notes */}
           {uncategorizedNotes.filter(matchesSearch).length > 0 && (
-            <div className="mt-2">
+            <div
+              className={`mt-2 rounded-md transition-colors ${
+                dropTargetId === "uncategorized"
+                  ? "bg-primary/10 ring-1 ring-primary/30"
+                  : ""
+              }`}
+              onDragOver={(e) => handleDragOver(e, "uncategorized")}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, null)}
+            >
               {folders.length > 0 && (
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-2 py-1 font-medium">
                   Uncategorized
