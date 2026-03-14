@@ -1,50 +1,107 @@
+import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   FileText,
   Layers,
   HelpCircle,
   Clock,
-  Plus,
   ArrowRight,
   TrendingUp,
   BookOpen,
   Zap,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const quickActions = [
-  { label: "New Note", icon: FileText, color: "text-primary" },
-  { label: "Start Study", icon: Clock, color: "text-primary" },
-  { label: "Practice", icon: HelpCircle, color: "text-primary" },
-  { label: "Review Cards", icon: Layers, color: "text-primary" },
+  { label: "New Note", icon: FileText, color: "text-primary", path: "/notes" },
+  { label: "Start Study", icon: Clock, color: "text-primary", path: "/study" },
+  { label: "Practice", icon: HelpCircle, color: "text-primary", path: "/practice" },
+  { label: "Review Cards", icon: Layers, color: "text-primary", path: "/flashcards" },
 ];
 
-const recentNotes = [
-  { title: "Binary Search Trees", subject: "Data Structures", time: "2h ago" },
-  { title: "React Server Components", subject: "Web Development", time: "Yesterday" },
-  { title: "TCP/IP Protocol Stack", subject: "Networking", time: "2 days ago" },
-];
-
-const studyPlan = [
-  { task: "Review 12 flashcards due today", type: "flashcards", priority: "high" },
-  { task: "Practice: Binary Search implementation", type: "coding", priority: "medium" },
-  { task: "Re-read: Operating Systems - Memory Management", type: "review", priority: "low" },
-];
+interface RecentNote {
+  id: string;
+  title: string;
+  updated_at: string;
+}
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
+  const [notesCount, setNotesCount] = useState(0);
+  const [flashcardsDue, setFlashcardsDue] = useState(0);
+  const [flashcardsTotal, setFlashcardsTotal] = useState(0);
+  const [studyMinutes, setStudyMinutes] = useState(0);
+  const [sessionsCount, setSessionsCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const load = async () => {
+      const now = new Date().toISOString();
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [notesRes, flashcardsDueRes, flashcardsTotalRes, sessionsRes, recentRes] =
+        await Promise.all([
+          supabase.from("notes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+          supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review", now),
+          supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+          supabase.from("study_sessions").select("duration_minutes").eq("user_id", user.id).gte("started_at", weekAgo),
+          supabase.from("notes").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(5),
+        ]);
+
+      setNotesCount(notesRes.count ?? 0);
+      setFlashcardsDue(flashcardsDueRes.count ?? 0);
+      setFlashcardsTotal(flashcardsTotalRes.count ?? 0);
+
+      const sessions = sessionsRes.data ?? [];
+      setSessionsCount(sessions.length);
+      setStudyMinutes(sessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0));
+
+      setRecentNotes(recentRes.data ?? []);
+      setLoading(false);
+    };
+
+    load();
+  }, [user]);
+
+  const formatTime = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 animate-fade-in">
-      {/* Greeting */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Good morning</h1>
+        <h1 className="text-2xl font-semibold tracking-tight mb-1">{greeting()}</h1>
         <p className="text-sm text-muted-foreground">
-          Here's your study plan for today. Stay focused.
+          {loading ? "Loading your dashboard…" : flashcardsDue > 0
+            ? `You have ${flashcardsDue} flashcard${flashcardsDue !== 1 ? "s" : ""} due for review.`
+            : "You're all caught up. Keep studying!"}
         </p>
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {quickActions.map((action) => (
           <button
             key={action.label}
+            onClick={() => navigate(action.path)}
             className="flex items-center gap-2.5 px-4 py-3 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
           >
             <action.icon size={16} className={action.color} />
@@ -54,7 +111,6 @@ export default function Dashboard() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-6 mb-8">
-        {/* Study Stats */}
         <div className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={14} className="text-primary" />
@@ -62,73 +118,89 @@ export default function Dashboard() {
           </div>
           <div className="space-y-3">
             <div>
-              <p className="text-2xl font-semibold tabular-nums">4.5h</p>
+              <p className="text-2xl font-semibold tabular-nums">
+                {loading ? "—" : studyMinutes >= 60 ? `${(studyMinutes / 60).toFixed(1)}h` : `${studyMinutes}m`}
+              </p>
               <p className="text-xs text-muted-foreground">Study time</p>
             </div>
             <div>
-              <p className="text-2xl font-semibold tabular-nums">48</p>
-              <p className="text-xs text-muted-foreground">Cards reviewed</p>
+              <p className="text-2xl font-semibold tabular-nums">{loading ? "—" : sessionsCount}</p>
+              <p className="text-xs text-muted-foreground">Sessions</p>
             </div>
             <div>
-              <p className="text-2xl font-semibold tabular-nums">86%</p>
-              <p className="text-xs text-muted-foreground">Retention rate</p>
+              <p className="text-2xl font-semibold tabular-nums">{loading ? "—" : flashcardsTotal}</p>
+              <p className="text-xs text-muted-foreground">Total flashcards</p>
             </div>
           </div>
         </div>
 
-        {/* Today's Study Plan */}
         <div className="md:col-span-2 rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 mb-3">
             <Zap size={14} className="text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Today's Plan</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">At a Glance</span>
           </div>
           <div className="space-y-2">
-            {studyPlan.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      item.priority === "high"
-                        ? "bg-primary"
-                        : item.priority === "medium"
-                        ? "bg-muted-foreground"
-                        : "bg-muted"
-                    }`}
-                  />
-                  <span className="text-sm">{item.task}</span>
-                </div>
-                <ArrowRight size={14} className="text-muted-foreground" />
+            <div
+              onClick={() => navigate("/flashcards")}
+              className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-1.5 h-1.5 rounded-full ${flashcardsDue > 0 ? "bg-primary" : "bg-muted"}`} />
+                <span className="text-sm">
+                  {flashcardsDue > 0 ? `Review ${flashcardsDue} due flashcard${flashcardsDue !== 1 ? "s" : ""}` : "No flashcards due"}
+                </span>
               </div>
-            ))}
+              <ArrowRight size={14} className="text-muted-foreground" />
+            </div>
+            <div
+              onClick={() => navigate("/notes")}
+              className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                <span className="text-sm">{notesCount} note{notesCount !== 1 ? "s" : ""} saved</span>
+              </div>
+              <ArrowRight size={14} className="text-muted-foreground" />
+            </div>
+            <div
+              onClick={() => navigate("/practice")}
+              className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-muted" />
+                <span className="text-sm">Practice questions</span>
+              </div>
+              <ArrowRight size={14} className="text-muted-foreground" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Notes */}
       <div className="rounded-lg border bg-card p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <BookOpen size={14} className="text-primary" />
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Recent Notes</span>
           </div>
-          <button className="text-xs text-primary hover:underline">View all</button>
+          <button onClick={() => navigate("/notes")} className="text-xs text-primary hover:underline">View all</button>
         </div>
         <div className="space-y-1">
-          {recentNotes.map((note, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
-            >
-              <div>
+          {loading ? (
+            <p className="text-sm text-muted-foreground px-3 py-2">Loading…</p>
+          ) : recentNotes.length === 0 ? (
+            <p className="text-sm text-muted-foreground px-3 py-2">No notes yet. Create your first one!</p>
+          ) : (
+            recentNotes.map((note) => (
+              <div
+                key={note.id}
+                onClick={() => navigate("/notes")}
+                className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+              >
                 <p className="text-sm font-medium">{note.title}</p>
-                <p className="text-xs text-muted-foreground">{note.subject}</p>
+                <span className="text-xs text-muted-foreground">{formatTime(note.updated_at)}</span>
               </div>
-              <span className="text-xs text-muted-foreground">{note.time}</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>
