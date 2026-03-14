@@ -352,6 +352,7 @@ function buildLoFi(ctx: AudioContext, masterGain: GainNode) {
       if (sound === "Rain") graph = buildRain(ctx, masterGain);
       else if (sound === "Café") graph = buildCafe(ctx, masterGain);
       else if (sound === "White Noise") graph = buildWhiteNoise(ctx, masterGain);
+      else if (sound === "Lo-Fi") graph = buildLoFi(ctx, masterGain);
 
       if (graph) {
         sourcesRef.current = graph.sources;
