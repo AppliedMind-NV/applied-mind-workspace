@@ -38,6 +38,8 @@ export default function Dashboard() {
   const [studyMinutes, setStudyMinutes] = useState(0);
   const [sessionsCount, setSessionsCount] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [studyDates, setStudyDates] = useState<Set<string>>(new Set());
+  const [minutesPerDay, setMinutesPerDay] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
