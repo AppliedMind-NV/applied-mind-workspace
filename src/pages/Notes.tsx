@@ -395,6 +395,13 @@ export default function Notes() {
               New Note
             </button>
             <button
+              onClick={() => setShowUpload(true)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              title="Import Lecture"
+            >
+              <Upload size={13} />
+            </button>
+            <button
               onClick={createFolder}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
               title="New Folder"
