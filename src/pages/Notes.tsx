@@ -210,7 +210,7 @@ export default function Notes() {
     if (selectedNote === id) {
       setSelectedNote(null);
       setTitle("");
-      setBody("");
+      setEditorContent(null);
     }
   };
 
