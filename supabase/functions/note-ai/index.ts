@@ -74,6 +74,7 @@ serve(async (req) => {
     }
 
     const isFlashcards = action === "flashcards";
+    const isGenerateNotes = action === "generate_notes";
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
