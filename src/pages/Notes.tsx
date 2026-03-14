@@ -30,6 +30,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LectureUpload } from "@/components/LectureUpload";
 
 interface Folder {
   id: string;
