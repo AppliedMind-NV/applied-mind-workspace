@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -13,6 +13,7 @@ import {
   Flame,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import WeeklyHeatmap from "@/components/WeeklyHeatmap";
 
 const quickActions = [
   { label: "New Note", icon: FileText, color: "text-primary", path: "/notes" },
@@ -37,6 +38,8 @@ export default function Dashboard() {
   const [studyMinutes, setStudyMinutes] = useState(0);
   const [sessionsCount, setSessionsCount] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [studyDates, setStudyDates] = useState<Set<string>>(new Set());
+  const [minutesPerDay, setMinutesPerDay] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +56,7 @@ export default function Dashboard() {
           supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id),
           supabase.from("study_sessions").select("duration_minutes").eq("user_id", user.id).gte("started_at", weekAgo),
           supabase.from("notes").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(5),
-          supabase.from("study_sessions").select("started_at").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
+          supabase.from("study_sessions").select("started_at, duration_minutes").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
         ]);
 
       setNotesCount(notesRes.count ?? 0);
@@ -64,8 +67,18 @@ export default function Dashboard() {
       setSessionsCount(sessions.length);
       setStudyMinutes(sessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0));
 
-      // Calculate streak from unique study days
+      // Build study dates and minutes-per-day for heatmap
       const streakDays = streakRes.data ?? [];
+      const datesSet = new Set<string>();
+      const minsMap = new Map<string, number>();
+      for (const s of streakDays) {
+        const dateKey = new Date(s.started_at).toISOString().split("T")[0];
+        datesSet.add(dateKey);
+        minsMap.set(dateKey, (minsMap.get(dateKey) ?? 0) + (s.duration_minutes ?? 0));
+      }
+      setStudyDates(datesSet);
+      setMinutesPerDay(minsMap);
+
       const uniqueDays = new Set(streakDays.map((s) => new Date(s.started_at).toLocaleDateString()));
       const sortedDays = Array.from(uniqueDays)
         .map((d) => new Date(d))
@@ -219,6 +232,33 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Activity Heatmap */}
+      <div className="rounded-lg border bg-card p-4 mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Flame size={14} className="text-primary" />
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Activity</span>
+        </div>
+        {loading ? (
+          <p className="text-sm text-muted-foreground px-3 py-2">Loading…</p>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <WeeklyHeatmap studyDates={studyDates} minutesPerDay={minutesPerDay} />
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[10px] text-muted-foreground">Less</span>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className={`w-[10px] h-[10px] rounded-[2px] ${
+                    ["bg-muted", "bg-primary/20", "bg-primary/40", "bg-primary/60", "bg-primary/90"][i]
+                  }`}
+                />
+              ))}
+              <span className="text-[10px] text-muted-foreground">More</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-lg border bg-card p-4">
