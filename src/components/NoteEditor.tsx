@@ -27,7 +27,7 @@ interface NoteEditorProps {
   onSelectionChange?: (text: string) => void;
 }
 
-export default function NoteEditor({ content, onUpdate }: NoteEditorProps) {
+export default function NoteEditor({ content, onUpdate, onSelectionChange }: NoteEditorProps) {
   const isExternalUpdate = useRef(false);
 
   const editor = useEditor({
