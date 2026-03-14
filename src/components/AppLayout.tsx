@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AIPanel } from "@/components/AIPanel";
+import { NoteProvider } from "@/contexts/NoteContext";
 import { PanelRight, PanelRightClose } from "lucide-react";
 
 export function AppLayout() {
