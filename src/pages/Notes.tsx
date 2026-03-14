@@ -477,7 +477,16 @@ export default function Notes() {
 
           {/* Uncategorized notes */}
           {uncategorizedNotes.filter(matchesSearch).length > 0 && (
-            <div className="mt-2">
+            <div
+              className={`mt-2 rounded-md transition-colors ${
+                dropTargetId === "uncategorized"
+                  ? "bg-primary/10 ring-1 ring-primary/30"
+                  : ""
+              }`}
+              onDragOver={(e) => handleDragOver(e, "uncategorized")}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, null)}
+            >
               {folders.length > 0 && (
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-2 py-1 font-medium">
                   Uncategorized
