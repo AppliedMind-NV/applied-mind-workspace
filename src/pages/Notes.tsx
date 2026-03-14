@@ -155,12 +155,18 @@ export default function Notes() {
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
-    if (selectedNote) autoSave(selectedNote, val, editorContent);
+    if (selectedNote) {
+      autoSave(selectedNote, val, editorContent);
+      setActiveNote(val, extractText(editorContent));
+    }
   };
 
   const handleEditorUpdate = (json: any) => {
     setEditorContent(json);
-    if (selectedNote) autoSave(selectedNote, title, json);
+    if (selectedNote) {
+      autoSave(selectedNote, title, json);
+      setActiveNote(title, extractText(json));
+    }
   };
 
   // Folder CRUD
