@@ -13,6 +13,8 @@ import {
   ArrowRightLeft,
   ArrowLeft,
   Upload,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
@@ -21,6 +23,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNoteContext } from "@/contexts/NoteContext";
+import { toast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +66,7 @@ export default function Notes() {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch folders and notes
@@ -305,6 +309,75 @@ export default function Notes() {
     setDropTargetId(null);
   };
 
+  const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
+
+  const generateFolderFlashcards = async (folderId: string) => {
+    if (!user || generatingFolderId) return;
+    const folderNotes = notesInFolder(folderId);
+    if (folderNotes.length === 0) {
+      toast({ title: "No notes", description: "This folder has no notes to generate flashcards from.", variant: "destructive" });
+      return;
+    }
+
+    setGeneratingFolderId(folderId);
+    let totalCards = 0;
+
+    try {
+      for (const note of folderNotes) {
+        const migrated = migrateContent(note.content);
+        const text = extractText(migrated);
+        if (text.trim().length < 20) continue;
+
+        const resp = await fetch(NOTE_AI_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [{ role: "user", content: "Generate flashcards from this note" }],
+            action: "flashcards",
+            noteContent: text,
+            noteTitle: note.title,
+          }),
+        });
+
+        if (!resp.ok) continue;
+
+        const data = await resp.json();
+        let cards: Array<{ front: string; back: string }> = [];
+        try {
+          const raw = data.content.trim();
+          const match = raw.match(/\[[\s\S]*\]/);
+          if (match) cards = JSON.parse(match[0]);
+        } catch {
+          continue;
+        }
+
+        if (cards.length > 0) {
+          const inserts = cards.map((c) => ({
+            user_id: user.id,
+            front: c.front,
+            back: c.back,
+            note_id: note.id,
+          }));
+          await supabase.from("flashcards").insert(inserts);
+          totalCards += cards.length;
+        }
+      }
+
+      if (totalCards > 0) {
+        toast({ title: "Flashcards generated!", description: `${totalCards} flashcards created from ${folderNotes.length} note${folderNotes.length > 1 ? "s" : ""}.` });
+      } else {
+        toast({ title: "No flashcards", description: "Notes didn't have enough content to generate flashcards.", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingFolderId(null);
+    }
+  };
+
   const NoteItem = ({ note }: { note: Note }) => (
     <div
       className={`group relative ${draggedNoteId === note.id ? "opacity-40" : ""}`}
@@ -499,6 +572,18 @@ export default function Notes() {
                         >
                           <Pencil size={12} className="mr-2" />
                           Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-xs"
+                          disabled={generatingFolderId === folder.id}
+                          onClick={() => generateFolderFlashcards(folder.id)}
+                        >
+                          {generatingFolderId === folder.id ? (
+                            <Loader2 size={12} className="mr-2 animate-spin" />
+                          ) : (
+                            <Sparkles size={12} className="mr-2" />
+                          )}
+                          {generatingFolderId === folder.id ? "Generating…" : "Generate Flashcards"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-xs text-destructive"
