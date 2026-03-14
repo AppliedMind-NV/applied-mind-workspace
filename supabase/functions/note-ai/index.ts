@@ -113,10 +113,10 @@ serve(async (req) => {
       );
     }
 
-    if (isFlashcards) {
+    if (isFlashcards || isGenerateNotes) {
       // Non-streaming: return full response for JSON parsing
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "[]";
+      const content = data.choices?.[0]?.message?.content || (isFlashcards ? "[]" : "{}");
       return new Response(JSON.stringify({ content }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
