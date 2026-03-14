@@ -61,7 +61,8 @@ export default function Notes() {
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null); // folder id or "uncategorized"
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [showUpload, setShowUpload] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch folders and notes
