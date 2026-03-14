@@ -327,7 +327,7 @@ export function AIPanel({ onClose }: AIPanelProps) {
     }
   };
 
-
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
     sendMessage(input.trim());
