@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 
-export type SoundType = "Rain" | "Café" | "White Noise" | "Silence";
+export type SoundType = "Rain" | "Café" | "White Noise" | "Forest" | "Silence";
 
 /**
  * ============================================================
