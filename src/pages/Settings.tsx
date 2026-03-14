@@ -12,9 +12,8 @@ const SOUND_LABELS: Record<string, string> = {
 
 export default function SettingsPage() {
   const [darkMode, setDarkMode] = useState(true);
-  const [role, setRole] = useState<"student" | "professional">("student");
   const [regenerating, setRegenerating] = useState<string | null>(null);
-  const { user, signOut } = useAuth();
+  const { user, signOut, role, setRole } = useAuth();
 
   const toggleDark = () => {
     setDarkMode(!darkMode);
