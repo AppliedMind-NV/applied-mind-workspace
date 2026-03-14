@@ -1,4 +1,4 @@
-import { CloudRain, Coffee, AudioLines, VolumeX, Volume2, Loader2 } from "lucide-react";
+import { CloudRain, Coffee, AudioLines, VolumeX, Volume2, Loader2, TreePine } from "lucide-react";
 import { useAmbientSound } from "@/hooks/useAmbientSound";
 import { Slider } from "@/components/ui/slider";
 
