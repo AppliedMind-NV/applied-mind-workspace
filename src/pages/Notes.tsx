@@ -82,7 +82,7 @@ export default function Notes() {
           const first = notesRes.data[0] as Note;
           setSelectedNote(first.id);
           setTitle(first.title);
-          setBody((first.content as any)?.body ?? "");
+          setEditorContent(migrateContent(first.content));
         }
       }
       setLoading(false);
@@ -98,28 +98,46 @@ export default function Notes() {
     }
   }, [editingFolderId]);
 
+  // Migrate old { body: string } format to TipTap JSON
+  const migrateContent = (content: any): any => {
+    if (!content) return { type: "doc", content: [] };
+    // Already TipTap JSON
+    if (content.type === "doc") return content;
+    // Old format: { body: "text" }
+    if (typeof content.body === "string" && content.body) {
+      return {
+        type: "doc",
+        content: content.body.split("\n").filter(Boolean).map((line: string) => ({
+          type: "paragraph",
+          content: [{ type: "text", text: line }],
+        })),
+      };
+    }
+    return { type: "doc", content: [] };
+  };
+
   const selectNote = (note: Note) => {
     setSelectedNote(note.id);
     setTitle(note.title);
-    setBody((note.content as any)?.body ?? "");
+    setEditorContent(migrateContent(note.content));
   };
 
   const autoSave = useCallback(
-    (noteId: string, newTitle: string, newBody: string) => {
+    (noteId: string, newTitle: string, newContent: any) => {
       if (saveTimeout) clearTimeout(saveTimeout);
       const timeout = setTimeout(async () => {
         await supabase
           .from("notes")
-          .update({ title: newTitle || "Untitled", content: { body: newBody } })
+          .update({ title: newTitle || "Untitled", content: newContent })
           .eq("id", noteId);
         setNotes((prev) =>
           prev.map((n) =>
             n.id === noteId
-              ? { ...n, title: newTitle || "Untitled", content: { body: newBody }, updated_at: new Date().toISOString() }
+              ? { ...n, title: newTitle || "Untitled", content: newContent, updated_at: new Date().toISOString() }
               : n
           )
         );
-      }, 600);
+      }, 800);
       setSaveTimeout(timeout);
     },
     [saveTimeout]
@@ -127,12 +145,12 @@ export default function Notes() {
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
-    if (selectedNote) autoSave(selectedNote, val, body);
+    if (selectedNote) autoSave(selectedNote, val, editorContent);
   };
 
-  const handleBodyChange = (val: string) => {
-    setBody(val);
-    if (selectedNote) autoSave(selectedNote, title, val);
+  const handleEditorUpdate = (json: any) => {
+    setEditorContent(json);
+    if (selectedNote) autoSave(selectedNote, title, json);
   };
 
   // Folder CRUD
