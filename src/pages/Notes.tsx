@@ -205,6 +205,11 @@ export default function Notes() {
             </div>
           </div>
         )}
+
+        {/* Compact study sounds at bottom of editor */}
+        <div className="border-t px-4 py-3 flex justify-center">
+          <StudySounds compact />
+        </div>
       </div>
     </div>
   );
