@@ -198,7 +198,7 @@ export default function Study() {
       <div className="mt-12">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Ambient</p>
         <div className="flex items-center justify-center gap-2">
-          {(["Rain", "Café", "White Noise", "Silence"] as const).map((sound) => (
+          {(["Rain", "Café", "Lo-Fi", "White Noise", "Silence"] as const).map((sound) => (
             <button
               key={sound}
               onClick={() => toggleSound(sound)}
