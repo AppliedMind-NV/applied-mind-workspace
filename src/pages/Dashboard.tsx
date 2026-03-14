@@ -155,6 +155,13 @@ export default function Dashboard() {
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">This Week</span>
           </div>
           <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Flame size={18} className={streak > 0 ? "text-orange-500" : "text-muted-foreground"} />
+              <div>
+                <p className="text-2xl font-semibold tabular-nums">{loading ? "—" : streak}</p>
+                <p className="text-xs text-muted-foreground">Day streak</p>
+              </div>
+            </div>
             <div>
               <p className="text-2xl font-semibold tabular-nums">
                 {loading ? "—" : studyMinutes >= 60 ? `${(studyMinutes / 60).toFixed(1)}h` : `${studyMinutes}m`}
