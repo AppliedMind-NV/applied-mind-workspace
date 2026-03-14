@@ -7,7 +7,7 @@ import StudySounds from "@/components/StudySounds";
 
 export default function Study() {
   const { user } = useAuth();
-  const { active: activeSound, toggle: toggleSound, volume, setVolume } = useAmbientSound();
+  
   const [isRunning, setIsRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [mode, setMode] = useState<"focus" | "break">("focus");
