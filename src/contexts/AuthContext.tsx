@@ -38,11 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, avatar_url")
       .eq("id", userId)
       .single();
     if (data?.role) {
       setRoleState(data.role as UserRole);
+    }
+    if (data?.avatar_url) {
+      setAvatarUrl(data.avatar_url as string);
     }
   }, []);
 
