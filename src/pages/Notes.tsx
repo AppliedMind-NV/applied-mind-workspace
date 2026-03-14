@@ -574,6 +574,18 @@ export default function Notes() {
                           Rename
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          className="text-xs"
+                          disabled={generatingFolderId === folder.id}
+                          onClick={() => generateFolderFlashcards(folder.id)}
+                        >
+                          {generatingFolderId === folder.id ? (
+                            <Loader2 size={12} className="mr-2 animate-spin" />
+                          ) : (
+                            <Sparkles size={12} className="mr-2" />
+                          )}
+                          {generatingFolderId === folder.id ? "Generating…" : "Generate Flashcards"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           className="text-xs text-destructive"
                           onClick={() => deleteFolder(folder.id)}
                         >
