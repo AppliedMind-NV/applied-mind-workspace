@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 
-export type SoundType = "Rain" | "Café" | "White Noise" | "Silence";
+export type SoundType = "Rain" | "Café" | "White Noise" | "Forest" | "Silence";
 
 /**
  * ============================================================
@@ -34,6 +34,10 @@ const SOUND_PROMPTS: Record<Exclude<SoundType, "Silence">, { prompt: string; dur
   "White Noise": {
     prompt: "Pure smooth white noise static, consistent and even, like a fan or air conditioner humming steadily",
     duration: 15,
+  },
+  Forest: {
+    prompt: "Peaceful forest ambience with birds singing and chirping, gentle wind rustling through leaves and trees, calm nature sounds for relaxation and studying",
+    duration: 22,
   },
 };
 

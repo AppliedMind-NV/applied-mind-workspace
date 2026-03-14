@@ -1,9 +1,9 @@
-import { CloudRain, Coffee, AudioLines, VolumeX, Volume2, Loader2 } from "lucide-react";
+import { CloudRain, Coffee, AudioLines, VolumeX, Volume2, Loader2, TreePine } from "lucide-react";
 import { useAmbientSound } from "@/hooks/useAmbientSound";
 import { Slider } from "@/components/ui/slider";
 
 type SoundOption = {
-  id: "Rain" | "Café" | "White Noise" | "Silence";
+  id: "Rain" | "Café" | "White Noise" | "Forest" | "Silence";
   label: string;
   icon: typeof CloudRain;
   activeLabel: string;
@@ -13,6 +13,7 @@ const sounds: SoundOption[] = [
   { id: "Rain", label: "Rain", icon: CloudRain, activeLabel: "Playing Rain" },
   { id: "Café", label: "Cafe", icon: Coffee, activeLabel: "Playing Cafe" },
   { id: "White Noise", label: "White Noise", icon: AudioLines, activeLabel: "Playing White Noise" },
+  { id: "Forest", label: "Forest", icon: TreePine, activeLabel: "Playing Forest" },
   { id: "Silence", label: "Silence", icon: VolumeX, activeLabel: "Silence selected" },
 ];
 
