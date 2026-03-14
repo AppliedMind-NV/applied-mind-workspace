@@ -13,6 +13,8 @@ import {
   ArrowRightLeft,
   ArrowLeft,
   Upload,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
