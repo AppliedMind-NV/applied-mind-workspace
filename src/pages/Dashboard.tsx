@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [flashcardsTotal, setFlashcardsTotal] = useState(0);
   const [studyMinutes, setStudyMinutes] = useState(0);
   const [sessionsCount, setSessionsCount] = useState(0);
+  const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,13 +45,14 @@ export default function Dashboard() {
       const now = new Date().toISOString();
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [notesRes, flashcardsDueRes, flashcardsTotalRes, sessionsRes, recentRes] =
+      const [notesRes, flashcardsDueRes, flashcardsTotalRes, sessionsRes, recentRes, streakRes] =
         await Promise.all([
           supabase.from("notes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
           supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review", now),
           supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id),
           supabase.from("study_sessions").select("duration_minutes").eq("user_id", user.id).gte("started_at", weekAgo),
           supabase.from("notes").select("id, title, updated_at").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(5),
+          supabase.from("study_sessions").select("started_at").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
         ]);
 
       setNotesCount(notesRes.count ?? 0);
@@ -60,6 +62,41 @@ export default function Dashboard() {
       const sessions = sessionsRes.data ?? [];
       setSessionsCount(sessions.length);
       setStudyMinutes(sessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0));
+
+      // Calculate streak from unique study days
+      const streakDays = streakRes.data ?? [];
+      const uniqueDays = new Set(streakDays.map((s) => new Date(s.started_at).toLocaleDateString()));
+      const sortedDays = Array.from(uniqueDays)
+        .map((d) => new Date(d))
+        .sort((a, b) => b.getTime() - a.getTime());
+
+      let currentStreak = 0;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      // Streak counts if user studied today or yesterday
+      if (sortedDays.length > 0) {
+        const mostRecent = new Date(sortedDays[0]);
+        mostRecent.setHours(0, 0, 0, 0);
+        if (mostRecent.getTime() === today.getTime() || mostRecent.getTime() === yesterday.getTime()) {
+          currentStreak = 1;
+          for (let i = 1; i < sortedDays.length; i++) {
+            const curr = new Date(sortedDays[i]);
+            curr.setHours(0, 0, 0, 0);
+            const prev = new Date(sortedDays[i - 1]);
+            prev.setHours(0, 0, 0, 0);
+            const diffDays = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
+            if (diffDays === 1) {
+              currentStreak++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+      setStreak(currentStreak);
 
       setRecentNotes(recentRes.data ?? []);
       setLoading(false);
