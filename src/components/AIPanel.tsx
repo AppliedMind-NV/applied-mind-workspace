@@ -156,6 +156,11 @@ export function AIPanel({ onClose }: AIPanelProps) {
       return;
     }
 
+    if (action === "practice") {
+      await generatePracticeQuestions();
+      return;
+    }
+
     sendMessage(label, action);
   };
 
