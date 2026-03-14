@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   ArrowRightLeft,
   ArrowLeft,
+  Upload,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
