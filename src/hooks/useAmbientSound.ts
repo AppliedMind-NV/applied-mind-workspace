@@ -316,6 +316,7 @@ function buildLoFi(ctx: AudioContext, masterGain: GainNode) {
   };
 }
 
+export function useAmbientSound() {
   const [active, setActive] = useState<SoundType | null>(null);
   const [volume, setVolume] = useState(0.5);
   const ctxRef = useRef<AudioContext | null>(null);
