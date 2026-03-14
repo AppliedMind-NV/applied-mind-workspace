@@ -85,9 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq("id", user.id);
   };
 
+  const refreshAvatar = (url: string) => setAvatarUrl(url);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoleState("student");
+    setAvatarUrl(null);
   };
 
   return (
