@@ -19,6 +19,10 @@ Do not include any text before or after the JSON array.`,
 
   practice: `You are an exam prep assistant. Generate practice questions from the following note content. Create a mix of short answer and conceptual questions. For each question, provide the answer. Use markdown formatting with numbered questions and clearly labeled answers.`,
 
+  practice_json: `You are an exam prep assistant. Generate 5-10 practice questions from the following note content. Return ONLY a valid JSON array of objects with "question" and "answer" keys. Create a mix of short answer and conceptual questions. Example format:
+[{"question": "What is X?", "answer": "X is..."}]
+Do not include any text before or after the JSON array.`,
+
   generate_notes: `You are an expert note-taking assistant for technical students. Given raw lecture content, transcript, or document text, transform it into well-structured study notes. Use this TipTap-compatible JSON format:
 
 Return ONLY a valid JSON object with this structure:
@@ -74,6 +78,7 @@ serve(async (req) => {
     }
 
     const isFlashcards = action === "flashcards";
+    const isPracticeJson = action === "practice_json";
     const isGenerateNotes = action === "generate_notes";
 
     const response = await fetch(
@@ -87,7 +92,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: aiMessages,
-          stream: !(isFlashcards || isGenerateNotes),
+          stream: !(isFlashcards || isGenerateNotes || isPracticeJson),
         }),
       }
     );
@@ -113,7 +118,7 @@ serve(async (req) => {
       );
     }
 
-    if (isFlashcards || isGenerateNotes) {
+    if (isFlashcards || isGenerateNotes || isPracticeJson) {
       // Non-streaming: return full response for JSON parsing
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || (isFlashcards ? "[]" : "{}");
