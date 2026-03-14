@@ -661,6 +661,7 @@ export default function Notes() {
               <NoteEditor
                 content={editorContent}
                 onUpdate={handleEditorUpdate}
+                onSelectionChange={setSelectedText}
               />
             </div>
           </div>
