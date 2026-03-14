@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,11 +14,15 @@ const SYSTEM_PROMPTS: Record<string, string> = {
 
   explain: `You are a patient tutor. Explain the concepts in the following note content in a way that's easy to understand. Break down complex ideas, use analogies where helpful, and highlight key takeaways. Use markdown formatting.`,
 
+  simplify: `You are a patient tutor who specializes in making complex topics simple. Take the provided text and rewrite it in the simplest possible terms. Use everyday language, short sentences, and relatable analogies. Avoid jargon unless you define it immediately. Use markdown formatting.`,
+
+  related: `You are a knowledgeable study assistant. Based on the provided note content, suggest 5-8 related concepts, topics, or areas the student should explore next to deepen their understanding. For each suggestion, provide a brief explanation of how it connects to the current material. Use markdown formatting with a numbered list.`,
+
+  explain_code: `You are an expert programming tutor. Explain the provided code block line by line in a way a beginner can understand. Cover what the code does, why it's written that way, any patterns or concepts used, and potential edge cases. Use markdown formatting with code blocks for references.`,
+
   flashcards: `You are a study tool. Generate flashcards from the following note content. Return ONLY a valid JSON array of objects with "front" and "back" keys. Each flashcard should test one concept. Generate 5-10 flashcards. Example format:
 [{"front": "What is X?", "back": "X is..."}]
 Do not include any text before or after the JSON array.`,
-
-  practice: `You are an exam prep assistant. Generate practice questions from the following note content. Create a mix of short answer and conceptual questions. For each question, provide the answer. Use markdown formatting with numbered questions and clearly labeled answers.`,
 
   practice_json: `You are an exam prep assistant. Generate 5-10 practice questions from the following note content. Return ONLY a valid JSON array of objects with "question" and "answer" keys. Create a mix of short answer and conceptual questions. Example format:
 [{"question": "What is X?", "answer": "X is..."}]
@@ -47,13 +52,15 @@ Guidelines:
 - Do not include any text before or after the JSON object.`,
 };
 
+const NON_STREAMING_ACTIONS = new Set(["flashcards", "practice_json", "generate_notes"]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, action, noteContent, noteTitle } = await req.json();
+    const { messages, action, noteContent, noteTitle, selectedText } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -64,11 +71,19 @@ serve(async (req) => {
       { role: "system", content: systemPrompt },
     ];
 
-    // If there's note context, inject it
+    // Inject note context
     if (noteContent && noteTitle) {
       aiMessages.push({
         role: "user",
         content: `Here is my note titled "${noteTitle}":\n\n${noteContent}`,
+      });
+    }
+
+    // Inject selected text for contextual actions
+    if (selectedText) {
+      aiMessages.push({
+        role: "user",
+        content: `The student has selected this specific text:\n\n"${selectedText}"`,
       });
     }
 
@@ -77,9 +92,37 @@ serve(async (req) => {
       aiMessages.push(...messages);
     }
 
-    const isFlashcards = action === "flashcards";
-    const isPracticeJson = action === "practice_json";
-    const isGenerateNotes = action === "generate_notes";
+    // Log usage to ai_logs
+    const authHeader = req.headers.get("authorization");
+    if (authHeader) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        // Extract user from JWT
+        const token = authHeader.replace("Bearer ", "");
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+        // Only log if it's a user token (not the anon key)
+        if (token !== anonKey) {
+          const userClient = createClient(supabaseUrl, anonKey!, {
+            global: { headers: { Authorization: `Bearer ${token}` } },
+          });
+          const { data: { user } } = await userClient.auth.getUser();
+          if (user) {
+            await supabase.from("ai_logs").insert({
+              user_id: user.id,
+              feature: `note-ai:${action || "chat"}`,
+            });
+          }
+        }
+      } catch (logErr) {
+        console.error("Failed to log AI usage:", logErr);
+        // Don't fail the request if logging fails
+      }
+    }
+
+    const isNonStreaming = NON_STREAMING_ACTIONS.has(action);
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -92,7 +135,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: aiMessages,
-          stream: !(isFlashcards || isGenerateNotes || isPracticeJson),
+          stream: !isNonStreaming,
         }),
       }
     );
@@ -118,10 +161,9 @@ serve(async (req) => {
       );
     }
 
-    if (isFlashcards || isGenerateNotes || isPracticeJson) {
-      // Non-streaming: return full response for JSON parsing
+    if (isNonStreaming) {
       const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || (isFlashcards ? "[]" : "{}");
+      const content = data.choices?.[0]?.message?.content || (action === "flashcards" ? "[]" : "{}");
       return new Response(JSON.stringify({ content }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
