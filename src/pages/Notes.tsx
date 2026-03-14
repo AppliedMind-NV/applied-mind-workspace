@@ -360,6 +360,13 @@ export default function Notes() {
       {/* Sidebar */}
       <div className="w-64 border-r flex flex-col shrink-0">
         <div className="p-3 border-b space-y-2">
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
+          >
+            <ArrowLeft size={12} />
+            Back to Dashboard
+          </Link>
           <div className="flex gap-1.5">
             <button
               onClick={() => createNote(null)}
