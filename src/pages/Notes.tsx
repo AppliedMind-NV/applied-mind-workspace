@@ -19,6 +19,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNoteContext } from "@/contexts/NoteContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
