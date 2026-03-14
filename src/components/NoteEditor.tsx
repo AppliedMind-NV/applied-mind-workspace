@@ -46,6 +46,11 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
         onUpdate(editor.getJSON());
       }
     },
+    onSelectionUpdate: ({ editor }) => {
+      const { from, to } = editor.state.selection;
+      const text = from !== to ? editor.state.doc.textBetween(from, to, " ") : "";
+      onSelectionChange?.(text);
+    },
     editorProps: {
       attributes: {
         class:
