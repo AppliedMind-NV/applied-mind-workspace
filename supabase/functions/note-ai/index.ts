@@ -19,6 +19,10 @@ Do not include any text before or after the JSON array.`,
 
   practice: `You are an exam prep assistant. Generate practice questions from the following note content. Create a mix of short answer and conceptual questions. For each question, provide the answer. Use markdown formatting with numbered questions and clearly labeled answers.`,
 
+  practice_json: `You are an exam prep assistant. Generate 5-10 practice questions from the following note content. Return ONLY a valid JSON array of objects with "question" and "answer" keys. Create a mix of short answer and conceptual questions. Example format:
+[{"question": "What is X?", "answer": "X is..."}]
+Do not include any text before or after the JSON array.`,
+
   generate_notes: `You are an expert note-taking assistant for technical students. Given raw lecture content, transcript, or document text, transform it into well-structured study notes. Use this TipTap-compatible JSON format:
 
 Return ONLY a valid JSON object with this structure:
