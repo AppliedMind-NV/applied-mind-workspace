@@ -51,19 +51,21 @@ export default function CodeLab() {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const { data } = await supabase
-        .from("code_projects")
-        .select("id, title, code, language")
-        .order("updated_at", { ascending: false });
-      if (data) {
-        setProjects(data);
-        if (data.length > 0) {
-          setSelectedId(data[0].id);
-          setCode(data[0].code);
-          setTitle(data[0].title);
-          setLanguage(data[0].language || "python");
+      const [projRes, notesRes] = await Promise.all([
+        supabase.from("code_projects").select("id, title, code, language, note_id").order("updated_at", { ascending: false }),
+        supabase.from("notes").select("id, title").order("updated_at", { ascending: false }),
+      ]);
+      if (projRes.data) {
+        setProjects(projRes.data);
+        if (projRes.data.length > 0) {
+          setSelectedId(projRes.data[0].id);
+          setCode(projRes.data[0].code);
+          setTitle(projRes.data[0].title);
+          setLanguage(projRes.data[0].language || "python");
+          setNoteId(projRes.data[0].note_id);
         }
       }
+      if (notesRes.data) setNotes(notesRes.data);
       setLoading(false);
     };
     load();
