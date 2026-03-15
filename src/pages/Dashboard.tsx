@@ -97,6 +97,8 @@ export default function Dashboard() {
         supabase.from("notes").select("id, title, updated_at, folder_id").eq("user_id", user.id).lte("updated_at", threeDaysAgo).order("updated_at", { ascending: true }).limit(10),
         // Folders for topic names
         supabase.from("folders").select("id, name").eq("user_id", user.id),
+        // Practice questions count
+        supabase.from("practice_questions").select("id", { count: "exact", head: true }).eq("user_id", user.id),
       ]);
 
       setNotesCount(notesRes.count ?? 0);
