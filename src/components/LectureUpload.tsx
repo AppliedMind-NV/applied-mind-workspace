@@ -113,10 +113,44 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     return pages.join("\n\n");
   };
 
+  const extractTextFromDocx = async (file: File): Promise<string> => {
+    const mammoth = await import("mammoth");
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  };
+
+  const extractTextFromPptx = async (file: File): Promise<string> => {
+    const JSZip = (await import("jszip")).default;
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const slideFiles = Object.keys(zip.files)
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/slide(\d+)/)?.[1] || "0");
+        const numB = parseInt(b.match(/slide(\d+)/)?.[1] || "0");
+        return numA - numB;
+      });
+
+    const pages: string[] = [];
+    for (const slidePath of slideFiles) {
+      const xml = await zip.files[slidePath].async("text");
+      const textContent = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (textContent) pages.push(textContent);
+    }
+    return pages.join("\n\n");
+  };
+
   const extractText = async (file: File): Promise<string> => {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext === "pdf" || file.type === "application/pdf") {
       return extractTextFromPdf(file);
+    }
+    if (ext === "docx" || file.type.includes("wordprocessingml")) {
+      return extractTextFromDocx(file);
+    }
+    if (ext === "pptx" || file.type.includes("presentationml")) {
+      return extractTextFromPptx(file);
     }
     return file.text();
   };
