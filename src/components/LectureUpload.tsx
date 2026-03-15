@@ -295,7 +295,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
             Import Lectures
           </DialogTitle>
           <DialogDescription>
-            Upload up to {MAX_FILES} files (PDF, TXT, Markdown) to auto-generate study notes.
+            Upload up to {MAX_FILES} files (PDF, DOCX, PPTX, TXT, Markdown) to auto-generate study notes.
           </DialogDescription>
         </DialogHeader>
 
