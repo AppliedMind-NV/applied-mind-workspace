@@ -49,7 +49,13 @@ Guidelines:
 - Bold important terms and concepts
 - Add a "Key Takeaways" section at the end
 - Be thorough but concise — capture everything a student needs to study
-- Do not include any text before or after the JSON object.`,
+  - Do not include any text before or after the JSON object.`,
+
+  code_explain: `You are an expert programming tutor. The student has shared code they're working on. Explain the code clearly, covering: what it does, how it works step by step, key concepts and patterns used, and any potential issues. Use markdown formatting with code references.`,
+
+  code_fix: `You are an expert programming tutor and debugger. The student has shared code that may have bugs or issues. Analyze the code carefully and suggest fixes. For each issue found: describe the problem, explain why it's wrong, and provide the corrected code. Use markdown with code blocks.`,
+
+  code_improve: `You are a senior software engineer and mentor. The student has shared code they want to improve. Suggest concrete improvements for: readability, performance, best practices, edge case handling, and code organization. Provide improved code snippets. Use markdown formatting.`,
 };
 
 const NON_STREAMING_ACTIONS = new Set(["flashcards", "practice_json", "generate_notes"]);
