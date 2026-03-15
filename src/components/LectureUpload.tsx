@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, FileText, X, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, FileText, X, Loader2, Sparkles, CheckCircle2, AlertCircle, Mic } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
