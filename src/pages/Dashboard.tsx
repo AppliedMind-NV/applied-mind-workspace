@@ -268,18 +268,29 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Today's Study Plan */}
+      {/* AI Study Coach — Today's Study Plan */}
       <div className="rounded-lg border bg-card p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles size={14} className="text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Today's Study Plan</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Study Coach</span>
           </div>
-          {studyPlanItems.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              {studyPlanItems.length} item{studyPlanItems.length !== 1 ? "s" : ""}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {studyPlanItems.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                {studyPlanItems.length} item{studyPlanItems.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {totalReviewItems > 0 && (
+              <button
+                onClick={() => navigate("/quick-review")}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Zap size={11} />
+                Quick Review
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
