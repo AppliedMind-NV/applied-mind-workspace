@@ -180,6 +180,17 @@ export default function CodeLab() {
 
   const clearOutput = () => setOutput("▸ Ready.");
 
+  const linkToNote = async (id: string | null) => {
+    setNoteId(id);
+    setShowNoteLinkMenu(false);
+    if (selectedId) {
+      await supabase.from("code_projects").update({ note_id: id }).eq("id", selectedId);
+      setProjects((prev) => prev.map((p) => (p.id === selectedId ? { ...p, note_id: id } : p)));
+      const noteName = id ? notes.find((n) => n.id === id)?.title : null;
+      toast({ title: id ? `Linked to "${noteName}"` : "Unlinked from note" });
+    }
+  };
+
   // Practice Builds callbacks
   const loadBuildCode = (buildCode: string, buildTitle: string, buildLang: string) => {
     if (selectedId) {
