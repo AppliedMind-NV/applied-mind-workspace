@@ -1,4 +1,4 @@
-import { Play, Terminal, Plus, Save, Trash2, Sparkles, RotateCcw, Loader2, Code2, Layers, BookOpen } from "lucide-react";
+import { Play, Terminal, Plus, Save, Trash2, Sparkles, RotateCcw, Loader2, Code2, Layers, BookOpen, Link2, Unlink } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +12,12 @@ interface CodeProject {
   title: string;
   code: string;
   language: string;
+  note_id: string | null;
+}
+
+interface NoteOption {
+  id: string;
+  title: string;
 }
 
 const LANGUAGES = [
@@ -36,25 +42,30 @@ export default function CodeLab() {
   const [running, setRunning] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("projects");
+  const [noteId, setNoteId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<NoteOption[]>([]);
+  const [showNoteLinkMenu, setShowNoteLinkMenu] = useState(false);
   const aiRef = useRef<CodeAIPanelRef>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const { data } = await supabase
-        .from("code_projects")
-        .select("id, title, code, language")
-        .order("updated_at", { ascending: false });
-      if (data) {
-        setProjects(data);
-        if (data.length > 0) {
-          setSelectedId(data[0].id);
-          setCode(data[0].code);
-          setTitle(data[0].title);
-          setLanguage(data[0].language || "python");
+      const [projRes, notesRes] = await Promise.all([
+        supabase.from("code_projects").select("id, title, code, language, note_id").order("updated_at", { ascending: false }),
+        supabase.from("notes").select("id, title").order("updated_at", { ascending: false }),
+      ]);
+      if (projRes.data) {
+        setProjects(projRes.data);
+        if (projRes.data.length > 0) {
+          setSelectedId(projRes.data[0].id);
+          setCode(projRes.data[0].code);
+          setTitle(projRes.data[0].title);
+          setLanguage(projRes.data[0].language || "python");
+          setNoteId(projRes.data[0].note_id);
         }
       }
+      if (notesRes.data) setNotes(notesRes.data);
       setLoading(false);
     };
     load();
@@ -91,6 +102,7 @@ export default function CodeLab() {
     setCode(p.code);
     setTitle(p.title);
     setLanguage(p.language || "python");
+    setNoteId(p.note_id);
     setOutput("▸ Click Run to execute code.");
   };
 
@@ -106,7 +118,7 @@ export default function CodeLab() {
         code: starter,
         language: selectedLang,
       })
-      .select("id, title, code, language")
+      .select("id, title, code, language, note_id")
       .single();
     if (data) {
       setProjects((prev) => [data, ...prev]);
@@ -118,8 +130,8 @@ export default function CodeLab() {
   const saveProject = async () => {
     if (!selectedId) return;
     setSaving(true);
-    await supabase.from("code_projects").update({ title, code, language }).eq("id", selectedId);
-    setProjects((prev) => prev.map((p) => (p.id === selectedId ? { ...p, title, code, language } : p)));
+    await supabase.from("code_projects").update({ title, code, language, note_id: noteId }).eq("id", selectedId);
+    setProjects((prev) => prev.map((p) => (p.id === selectedId ? { ...p, title, code, language, note_id: noteId } : p)));
     setSaving(false);
     toast({ title: "Project saved" });
   };
@@ -167,6 +179,17 @@ export default function CodeLab() {
   };
 
   const clearOutput = () => setOutput("▸ Ready.");
+
+  const linkToNote = async (id: string | null) => {
+    setNoteId(id);
+    setShowNoteLinkMenu(false);
+    if (selectedId) {
+      await supabase.from("code_projects").update({ note_id: id }).eq("id", selectedId);
+      setProjects((prev) => prev.map((p) => (p.id === selectedId ? { ...p, note_id: id } : p)));
+      const noteName = id ? notes.find((n) => n.id === id)?.title : null;
+      toast({ title: id ? `Linked to "${noteName}"` : "Unlinked from note" });
+    }
+  };
 
   // Practice Builds callbacks
   const loadBuildCode = (buildCode: string, buildTitle: string, buildLang: string) => {
@@ -295,8 +318,11 @@ export default function CodeLab() {
                       selectedId === p.id ? "bg-accent" : "hover:bg-accent/50"
                     }`}
                   >
-                    <p className="font-medium truncate">{p.title}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{p.language}</p>
+                     <p className="font-medium truncate">{p.title}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[10px] text-muted-foreground">{p.language}</span>
+                      {p.note_id && <Link2 size={9} className="text-primary" />}
+                    </div>
                   </button>
                   <button
                     onClick={() => deleteProject(p.id)}
@@ -344,6 +370,51 @@ export default function CodeLab() {
                 <option key={l.value} value={l.value}>{l.label}</option>
               ))}
             </select>
+            {/* Link to note */}
+            {selectedId && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowNoteLinkMenu(!showNoteLinkMenu)}
+                  className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] transition-colors ${
+                    noteId ? "bg-primary/10 text-primary" : "hover:bg-accent text-muted-foreground"
+                  }`}
+                  title={noteId ? `Linked to: ${notes.find(n => n.id === noteId)?.title}` : "Link to a note"}
+                >
+                  <Link2 size={10} />
+                  {noteId ? (
+                    <span className="max-w-[80px] truncate">{notes.find(n => n.id === noteId)?.title || "Note"}</span>
+                  ) : (
+                    <span>Link Note</span>
+                  )}
+                </button>
+                {showNoteLinkMenu && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-popover border rounded-md shadow-lg z-50 py-1 max-h-60 overflow-auto scrollbar-thin">
+                    {noteId && (
+                      <button
+                        onClick={() => linkToNote(null)}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent flex items-center gap-2 text-destructive"
+                      >
+                        <Unlink size={10} /> Unlink from note
+                      </button>
+                    )}
+                    {notes.length === 0 && (
+                      <p className="px-3 py-2 text-[10px] text-muted-foreground">No notes yet</p>
+                    )}
+                    {notes.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => linkToNote(n.id)}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors ${
+                          noteId === n.id ? "bg-accent font-medium" : ""
+                        }`}
+                      >
+                        {n.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button

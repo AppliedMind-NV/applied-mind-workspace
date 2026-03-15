@@ -15,11 +15,14 @@ import {
   Upload,
   Sparkles,
   Loader2,
+  Code2,
+  ExternalLink,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNoteContext } from "@/contexts/NoteContext";
@@ -51,7 +54,9 @@ interface Note {
 
 export default function Notes() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { setActiveNote, setSelectedText } = useNoteContext();
+  const [linkedProjects, setLinkedProjects] = useState<{ id: string; title: string; language: string }[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
@@ -131,12 +136,18 @@ export default function Notes() {
     return "";
   };
 
-  const selectNote = (note: Note) => {
+  const selectNote = async (note: Note) => {
     setSelectedNote(note.id);
     setTitle(note.title);
     const migrated = migrateContent(note.content);
     setEditorContent(migrated);
     setActiveNote(note.title, extractText(migrated));
+    // Fetch linked code projects
+    const { data } = await supabase
+      .from("code_projects")
+      .select("id, title, language")
+      .eq("note_id", note.id);
+    setLinkedProjects(data || []);
   };
 
   const autoSave = useCallback(
@@ -657,6 +668,23 @@ export default function Notes() {
               className="w-full text-2xl font-semibold bg-transparent outline-none mb-4 placeholder:text-muted-foreground shrink-0"
               placeholder="Untitled"
             />
+            {/* Linked code projects */}
+            {linkedProjects.length > 0 && (
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <Code2 size={12} className="text-muted-foreground shrink-0" />
+                {linkedProjects.map((proj) => (
+                  <button
+                    key={proj.id}
+                    onClick={() => navigate("/codelab")}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent text-xs hover:bg-accent/80 transition-colors"
+                  >
+                    <span className="font-medium">{proj.title}</span>
+                    <span className="text-[10px] text-muted-foreground">{proj.language}</span>
+                    <ExternalLink size={9} className="text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex-1 min-h-0">
               <NoteEditor
                 content={editorContent}
