@@ -359,7 +359,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
             <input
               ref={inputRef}
               type="file"
-              accept=".pdf,.txt,.md,.markdown,.docx,.pptx"
+              accept=".pdf,.txt,.md,.markdown,.docx,.pptx,.mp3,.wav,.m4a,.webm,.ogg"
               multiple
               className="hidden"
               onChange={(e) => {
