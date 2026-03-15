@@ -489,6 +489,13 @@ export default function Notes() {
               <Upload size={13} />
             </button>
             <button
+              onClick={() => setShowRecorder(true)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              title="Record Lecture"
+            >
+              <Mic size={13} />
+            </button>
+            <button
               onClick={createFolder}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
               title="New Folder"
