@@ -62,7 +62,9 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     const ext = f.name.split(".").pop()?.toLowerCase();
     const ok = ACCEPTED_TYPES.includes(f.type) || ACCEPTED_EXTS.includes(ext || "");
     if (!ok) return "Unsupported type";
-    if (f.size > MAX_SIZE) return "Too large (max 10MB)";
+    const isAudio = AUDIO_EXTS.has(ext || "");
+    if (isAudio && f.size > 25 * 1024 * 1024) return "Too large (max 25MB)";
+    if (!isAudio && f.size > 10 * 1024 * 1024) return "Too large (max 10MB)";
     return null;
   };
 
