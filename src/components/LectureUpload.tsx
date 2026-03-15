@@ -330,7 +330,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
               Drop files here or <span className="text-primary font-medium">browse</span>
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              PDF, TXT, or Markdown • Max 10MB each • Up to {MAX_FILES} files
+              PDF, DOCX, PPTX, TXT, or Markdown • Max 10MB each • Up to {MAX_FILES} files
             </p>
           </div>
         )}
