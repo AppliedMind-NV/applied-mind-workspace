@@ -77,6 +77,7 @@ export type Database = {
           created_at: string
           id: string
           language: string
+          note_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -86,6 +87,7 @@ export type Database = {
           created_at?: string
           id?: string
           language?: string
+          note_id?: string | null
           title?: string
           updated_at?: string
           user_id: string
@@ -95,11 +97,20 @@ export type Database = {
           created_at?: string
           id?: string
           language?: string
+          note_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "code_projects_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_send_log: {
         Row: {

@@ -1,0 +1,1 @@
+ALTER TABLE public.code_projects ADD COLUMN note_id uuid REFERENCES public.notes(id) ON DELETE SET NULL;
