@@ -12,6 +12,12 @@ interface CodeProject {
   title: string;
   code: string;
   language: string;
+  note_id: string | null;
+}
+
+interface NoteOption {
+  id: string;
+  title: string;
 }
 
 const LANGUAGES = [
