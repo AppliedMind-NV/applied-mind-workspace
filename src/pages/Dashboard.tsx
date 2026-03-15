@@ -103,6 +103,7 @@ export default function Dashboard() {
       ]);
 
       setNotesCount(notesRes.count ?? 0);
+      setPracticeCount(practiceRes.count ?? 0);
       setFlashcardsDue(flashcardsDueRes.count ?? 0);
       setFlashcardsTotal(flashcardsTotalRes.count ?? 0);
 

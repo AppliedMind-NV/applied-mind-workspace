@@ -41,6 +41,7 @@ const App = () => (
               <Route path="/notes" element={<Notes />} />
               <Route path="/flashcards" element={<Flashcards />} />
               <Route path="/practice" element={<Practice />} />
+              <Route path="/quick-review" element={<QuickReview />} />
               <Route path="/code-lab" element={<CodeLab />} />
               <Route path="/study" element={<Study />} />
               <Route path="/settings" element={<SettingsPage />} />
