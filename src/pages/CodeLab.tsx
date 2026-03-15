@@ -318,8 +318,11 @@ export default function CodeLab() {
                       selectedId === p.id ? "bg-accent" : "hover:bg-accent/50"
                     }`}
                   >
-                    <p className="font-medium truncate">{p.title}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{p.language}</p>
+                     <p className="font-medium truncate">{p.title}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-[10px] text-muted-foreground">{p.language}</span>
+                      {p.note_id && <Link2 size={9} className="text-primary" />}
+                    </div>
                   </button>
                   <button
                     onClick={() => deleteProject(p.id)}
