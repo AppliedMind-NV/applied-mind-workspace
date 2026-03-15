@@ -17,6 +17,7 @@ import {
   Loader2,
   Code2,
   ExternalLink,
+  Mic,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
