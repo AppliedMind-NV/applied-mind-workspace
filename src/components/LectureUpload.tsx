@@ -85,7 +85,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     });
 
     if (skipped > 0) {
-      toast({ title: `${skipped} file(s) skipped`, description: "Only PDF, TXT, and Markdown files are supported.", variant: "destructive" });
+      toast({ title: `${skipped} file(s) skipped`, description: "Only PDF, DOCX, PPTX, TXT, and Markdown files are supported.", variant: "destructive" });
     }
   }, []);
 
