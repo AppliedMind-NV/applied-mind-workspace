@@ -84,6 +84,7 @@ export default function Dashboard() {
         dueCardsRes,
         staleNotesRes,
         foldersRes,
+        practiceRes,
       ] = await Promise.all([
         supabase.from("notes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review", now),
