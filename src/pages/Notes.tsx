@@ -735,6 +735,23 @@ export default function Notes() {
           }
         }}
       />
+      <LectureRecorder
+        open={showRecorder}
+        onOpenChange={setShowRecorder}
+        folderId={null}
+        onNoteCreated={async (noteId) => {
+          const { data } = await supabase
+            .from("notes")
+            .select("*")
+            .eq("user_id", user!.id)
+            .order("updated_at", { ascending: false });
+          if (data) {
+            setNotes(data);
+            const created = data.find((n: any) => n.id === noteId);
+            if (created) selectNote(created);
+          }
+        }}
+      />
     </div>
   );
 }
