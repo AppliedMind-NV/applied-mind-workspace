@@ -73,6 +73,7 @@ export default function Notes() {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
   const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
