@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, FileText, X, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, FileText, X, Loader2, Sparkles, CheckCircle2, AlertCircle, Mic } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
@@ -7,13 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
-const ACCEPTED_EXTS = ["pdf", "txt", "md", "markdown", "docx", "pptx"];
+const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
+const ACCEPTED_EXTS = ["pdf", "txt", "md", "markdown", "docx", "pptx", "mp3", "wav", "m4a", "webm", "ogg"];
 const ACCEPTED_TYPES = [
   "application/pdf", "text/plain", "text/markdown", "text/x-markdown",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "audio/mpeg", "audio/wav", "audio/mp3", "audio/x-wav", "audio/m4a", "audio/mp4",
+  "audio/webm", "audio/ogg",
 ];
-const MAX_SIZE = 10 * 1024 * 1024;
+const AUDIO_EXTS = new Set(["mp3", "wav", "m4a", "webm", "ogg"]);
+const MAX_SIZE = 25 * 1024 * 1024; // 25MB for audio
 const MAX_FILES = 10;
 
 interface LectureUploadProps {
@@ -23,7 +27,7 @@ interface LectureUploadProps {
   onNoteCreated: (noteId: string) => void;
 }
 
-type FileStatus = "queued" | "reading" | "generating" | "saving" | "done" | "error";
+type FileStatus = "queued" | "reading" | "transcribing" | "generating" | "saving" | "done" | "error";
 
 interface QueuedFile {
   file: File;
@@ -58,7 +62,9 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     const ext = f.name.split(".").pop()?.toLowerCase();
     const ok = ACCEPTED_TYPES.includes(f.type) || ACCEPTED_EXTS.includes(ext || "");
     if (!ok) return "Unsupported type";
-    if (f.size > MAX_SIZE) return "Too large (max 10MB)";
+    const isAudio = AUDIO_EXTS.has(ext || "");
+    if (isAudio && f.size > 25 * 1024 * 1024) return "Too large (max 25MB)";
+    if (!isAudio && f.size > 10 * 1024 * 1024) return "Too large (max 10MB)";
     return null;
   };
 
@@ -85,7 +91,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     });
 
     if (skipped > 0) {
-      toast({ title: `${skipped} file(s) skipped`, description: "Only PDF, DOCX, PPTX, TXT, and Markdown files are supported.", variant: "destructive" });
+      toast({ title: `${skipped} file(s) skipped`, description: "Only PDF, DOCX, PPTX, TXT, Markdown, and audio files (MP3, WAV) are supported.", variant: "destructive" });
     }
   }, []);
 
@@ -141,6 +147,32 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     return pages.join("\n\n");
   };
 
+  const isAudioFile = (file: File): boolean => {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    return AUDIO_EXTS.has(ext || "");
+  };
+
+  const transcribeAudio = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("audio", file);
+
+    const resp = await fetch(TRANSCRIBE_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error || `Transcription failed (${resp.status})`);
+    }
+
+    const data = await resp.json();
+    return data.text || "";
+  };
+
   const extractText = async (file: File): Promise<string> => {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext === "pdf" || file.type === "application/pdf") {
@@ -164,13 +196,22 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
 
     try {
       updateFile(idx, { status: "reading", progress: 10 });
-      const rawText = await extractText(qf.file);
+
+      let rawText: string;
+
+      if (isAudioFile(qf.file)) {
+        updateFile(idx, { status: "transcribing", progress: 20 });
+        rawText = await transcribeAudio(qf.file);
+        updateFile(idx, { progress: 40 });
+      } else {
+        rawText = await extractText(qf.file);
+      }
 
       if (rawText.trim().length < 50) {
         throw new Error("Not enough text to generate notes.");
       }
 
-      updateFile(idx, { status: "generating", progress: 40 });
+      updateFile(idx, { status: "generating", progress: 50 });
 
       const resp = await fetch(NOTE_AI_URL, {
         method: "POST",
@@ -278,6 +319,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     const map: Record<FileStatus, string> = {
       queued: "Queued",
       reading: "Extracting…",
+      transcribing: "Transcribing…",
       generating: "Generating…",
       saving: "Saving…",
       done: "Done",
@@ -295,7 +337,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
             Import Lectures
           </DialogTitle>
           <DialogDescription>
-            Upload up to {MAX_FILES} files (PDF, DOCX, PPTX, TXT, Markdown) to auto-generate study notes.
+            Upload up to {MAX_FILES} files (PDF, DOCX, PPTX, TXT, Markdown, MP3, WAV) to auto-generate study notes.
           </DialogDescription>
         </DialogHeader>
 
@@ -317,7 +359,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
             <input
               ref={inputRef}
               type="file"
-              accept=".pdf,.txt,.md,.markdown,.docx,.pptx"
+              accept=".pdf,.txt,.md,.markdown,.docx,.pptx,.mp3,.wav,.m4a,.webm,.ogg"
               multiple
               className="hidden"
               onChange={(e) => {
@@ -330,7 +372,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
               Drop files here or <span className="text-primary font-medium">browse</span>
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              PDF, DOCX, PPTX, TXT, or Markdown • Max 10MB each • Up to {MAX_FILES} files
+              PDF, DOCX, PPTX, TXT, Markdown, or Audio (MP3, WAV) • Max 25MB audio / 10MB docs • Up to {MAX_FILES} files
             </p>
           </div>
         )}
