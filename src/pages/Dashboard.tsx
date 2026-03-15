@@ -64,6 +64,7 @@ export default function Dashboard() {
   const [dueCards, setDueCards] = useState<DueFlashcard[]>([]);
   const [reviewTopics, setReviewTopics] = useState<ReviewTopic[]>([]);
   const [staleNotes, setStaleNotes] = useState<RecentNote[]>([]);
+  const [practiceCount, setPracticeCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
