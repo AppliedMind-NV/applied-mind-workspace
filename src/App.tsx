@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import Notes from "@/pages/Notes";
 import Flashcards from "@/pages/Flashcards";
 import Practice from "@/pages/Practice";
+import QuickReview from "@/pages/QuickReview";
 import CodeLab from "@/pages/CodeLab";
 import Study from "@/pages/Study";
 import SettingsPage from "@/pages/Settings";
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/notes" element={<Notes />} />
               <Route path="/flashcards" element={<Flashcards />} />
               <Route path="/practice" element={<Practice />} />
+              <Route path="/quick-review" element={<QuickReview />} />
               <Route path="/code-lab" element={<CodeLab />} />
               <Route path="/study" element={<Study />} />
               <Route path="/settings" element={<SettingsPage />} />

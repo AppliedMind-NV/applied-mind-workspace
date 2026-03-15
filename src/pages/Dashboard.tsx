@@ -64,6 +64,7 @@ export default function Dashboard() {
   const [dueCards, setDueCards] = useState<DueFlashcard[]>([]);
   const [reviewTopics, setReviewTopics] = useState<ReviewTopic[]>([]);
   const [staleNotes, setStaleNotes] = useState<RecentNote[]>([]);
+  const [practiceCount, setPracticeCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -83,6 +84,7 @@ export default function Dashboard() {
         dueCardsRes,
         staleNotesRes,
         foldersRes,
+        practiceRes,
       ] = await Promise.all([
         supabase.from("notes").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         supabase.from("flashcards").select("id", { count: "exact", head: true }).eq("user_id", user.id).lte("next_review", now),
@@ -96,9 +98,12 @@ export default function Dashboard() {
         supabase.from("notes").select("id, title, updated_at, folder_id").eq("user_id", user.id).lte("updated_at", threeDaysAgo).order("updated_at", { ascending: true }).limit(10),
         // Folders for topic names
         supabase.from("folders").select("id, name").eq("user_id", user.id),
+        // Practice questions count
+        supabase.from("practice_questions").select("id", { count: "exact", head: true }).eq("user_id", user.id),
       ]);
 
       setNotesCount(notesRes.count ?? 0);
+      setPracticeCount(practiceRes.count ?? 0);
       setFlashcardsDue(flashcardsDueRes.count ?? 0);
       setFlashcardsTotal(flashcardsTotalRes.count ?? 0);
 
@@ -207,6 +212,16 @@ export default function Dashboard() {
           priority: "high" as const,
         }]
       : []),
+    ...(practiceCount > 0 && staleNotes.length > 0
+      ? [{
+          key: "practice-recommend",
+          icon: HelpCircle,
+          label: `Practice questions on recent topics`,
+          sublabel: `${practiceCount} question${practiceCount !== 1 ? "s" : ""} available`,
+          action: () => navigate("/practice"),
+          priority: "high" as const,
+        }]
+      : []),
     ...reviewTopics.map((topic) => ({
       key: `review-${topic.noteId}`,
       icon: RotateCcw,
@@ -224,6 +239,8 @@ export default function Dashboard() {
       priority: "low" as const,
     })),
   ].slice(0, 5);
+
+  const totalReviewItems = flashcardsDue + staleNotes.length;
 
   const allCaughtUp = studyPlanItems.length === 0 && !loading;
 
@@ -251,18 +268,29 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Today's Study Plan */}
+      {/* AI Study Coach — Today's Study Plan */}
       <div className="rounded-lg border bg-card p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Sparkles size={14} className="text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Today's Study Plan</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Study Coach</span>
           </div>
-          {studyPlanItems.length > 0 && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-              {studyPlanItems.length} item{studyPlanItems.length !== 1 ? "s" : ""}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {studyPlanItems.length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                {studyPlanItems.length} item{studyPlanItems.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {totalReviewItems > 0 && (
+              <button
+                onClick={() => navigate("/quick-review")}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 transition-colors"
+              >
+                <Zap size={11} />
+                Quick Review
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
