@@ -27,7 +27,7 @@ interface LectureUploadProps {
   onNoteCreated: (noteId: string) => void;
 }
 
-type FileStatus = "queued" | "reading" | "generating" | "saving" | "done" | "error";
+type FileStatus = "queued" | "reading" | "transcribing" | "generating" | "saving" | "done" | "error";
 
 interface QueuedFile {
   file: File;
