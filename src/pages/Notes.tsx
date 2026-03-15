@@ -668,6 +668,23 @@ export default function Notes() {
               className="w-full text-2xl font-semibold bg-transparent outline-none mb-4 placeholder:text-muted-foreground shrink-0"
               placeholder="Untitled"
             />
+            {/* Linked code projects */}
+            {linkedProjects.length > 0 && (
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <Code2 size={12} className="text-muted-foreground shrink-0" />
+                {linkedProjects.map((proj) => (
+                  <button
+                    key={proj.id}
+                    onClick={() => navigate("/codelab")}
+                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent text-xs hover:bg-accent/80 transition-colors"
+                  >
+                    <span className="font-medium">{proj.title}</span>
+                    <span className="text-[10px] text-muted-foreground">{proj.language}</span>
+                    <ExternalLink size={9} className="text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex-1 min-h-0">
               <NoteEditor
                 content={editorContent}
