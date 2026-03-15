@@ -196,13 +196,22 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
 
     try {
       updateFile(idx, { status: "reading", progress: 10 });
-      const rawText = await extractText(qf.file);
+
+      let rawText: string;
+
+      if (isAudioFile(qf.file)) {
+        updateFile(idx, { status: "transcribing", progress: 20 });
+        rawText = await transcribeAudio(qf.file);
+        updateFile(idx, { progress: 40 });
+      } else {
+        rawText = await extractText(qf.file);
+      }
 
       if (rawText.trim().length < 50) {
         throw new Error("Not enough text to generate notes.");
       }
 
-      updateFile(idx, { status: "generating", progress: 40 });
+      updateFile(idx, { status: "generating", progress: 50 });
 
       const resp = await fetch(NOTE_AI_URL, {
         method: "POST",
