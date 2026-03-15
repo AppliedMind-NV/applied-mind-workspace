@@ -35,6 +35,42 @@ export type Database = {
         }
         Relationships: []
       }
+      build_progress: {
+        Row: {
+          build_id: string
+          completed: boolean
+          completed_at: string | null
+          completed_steps: number[]
+          created_at: string
+          current_step: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          build_id: string
+          completed?: boolean
+          completed_at?: string | null
+          completed_steps?: number[]
+          created_at?: string
+          current_step?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          build_id?: string
+          completed?: boolean
+          completed_at?: string | null
+          completed_steps?: number[]
+          created_at?: string
+          current_step?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       code_projects: {
         Row: {
           code: string
