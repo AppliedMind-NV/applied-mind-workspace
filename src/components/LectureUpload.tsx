@@ -319,6 +319,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     const map: Record<FileStatus, string> = {
       queued: "Queued",
       reading: "Extracting…",
+      transcribing: "Transcribing…",
       generating: "Generating…",
       saving: "Saving…",
       done: "Done",
