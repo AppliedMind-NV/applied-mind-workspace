@@ -370,6 +370,51 @@ export default function CodeLab() {
                 <option key={l.value} value={l.value}>{l.label}</option>
               ))}
             </select>
+            {/* Link to note */}
+            {selectedId && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowNoteLinkMenu(!showNoteLinkMenu)}
+                  className={`flex items-center gap-1 px-1.5 py-1 rounded text-[10px] transition-colors ${
+                    noteId ? "bg-primary/10 text-primary" : "hover:bg-accent text-muted-foreground"
+                  }`}
+                  title={noteId ? `Linked to: ${notes.find(n => n.id === noteId)?.title}` : "Link to a note"}
+                >
+                  <Link2 size={10} />
+                  {noteId ? (
+                    <span className="max-w-[80px] truncate">{notes.find(n => n.id === noteId)?.title || "Note"}</span>
+                  ) : (
+                    <span>Link Note</span>
+                  )}
+                </button>
+                {showNoteLinkMenu && (
+                  <div className="absolute top-full left-0 mt-1 w-56 bg-popover border rounded-md shadow-lg z-50 py-1 max-h-60 overflow-auto scrollbar-thin">
+                    {noteId && (
+                      <button
+                        onClick={() => linkToNote(null)}
+                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent flex items-center gap-2 text-destructive"
+                      >
+                        <Unlink size={10} /> Unlink from note
+                      </button>
+                    )}
+                    {notes.length === 0 && (
+                      <p className="px-3 py-2 text-[10px] text-muted-foreground">No notes yet</p>
+                    )}
+                    {notes.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => linkToNote(n.id)}
+                        className={`w-full text-left px-3 py-1.5 text-xs hover:bg-accent transition-colors ${
+                          noteId === n.id ? "bg-accent font-medium" : ""
+                        }`}
+                      >
+                        {n.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
