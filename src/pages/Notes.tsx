@@ -136,12 +136,18 @@ export default function Notes() {
     return "";
   };
 
-  const selectNote = (note: Note) => {
+  const selectNote = async (note: Note) => {
     setSelectedNote(note.id);
     setTitle(note.title);
     const migrated = migrateContent(note.content);
     setEditorContent(migrated);
     setActiveNote(note.title, extractText(migrated));
+    // Fetch linked code projects
+    const { data } = await supabase
+      .from("code_projects")
+      .select("id, title, language")
+      .eq("note_id", note.id);
+    setLinkedProjects(data || []);
   };
 
   const autoSave = useCallback(
