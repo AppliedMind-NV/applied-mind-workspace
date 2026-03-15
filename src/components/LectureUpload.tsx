@@ -147,6 +147,32 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     return pages.join("\n\n");
   };
 
+  const isAudioFile = (file: File): boolean => {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    return AUDIO_EXTS.has(ext || "");
+  };
+
+  const transcribeAudio = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("audio", file);
+
+    const resp = await fetch(TRANSCRIBE_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error || `Transcription failed (${resp.status})`);
+    }
+
+    const data = await resp.json();
+    return data.text || "";
+  };
+
   const extractText = async (file: File): Promise<string> => {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext === "pdf" || file.type === "application/pdf") {
