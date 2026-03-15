@@ -7,13 +7,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
-const ACCEPTED_EXTS = ["pdf", "txt", "md", "markdown", "docx", "pptx"];
+const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
+const ACCEPTED_EXTS = ["pdf", "txt", "md", "markdown", "docx", "pptx", "mp3", "wav", "m4a", "webm", "ogg"];
 const ACCEPTED_TYPES = [
   "application/pdf", "text/plain", "text/markdown", "text/x-markdown",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "audio/mpeg", "audio/wav", "audio/mp3", "audio/x-wav", "audio/m4a", "audio/mp4",
+  "audio/webm", "audio/ogg",
 ];
-const MAX_SIZE = 10 * 1024 * 1024;
+const AUDIO_EXTS = new Set(["mp3", "wav", "m4a", "webm", "ogg"]);
+const MAX_SIZE = 25 * 1024 * 1024; // 25MB for audio
 const MAX_FILES = 10;
 
 interface LectureUploadProps {
