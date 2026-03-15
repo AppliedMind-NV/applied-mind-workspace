@@ -15,6 +15,8 @@ import {
   Upload,
   Sparkles,
   Loader2,
+  Code2,
+  ExternalLink,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
