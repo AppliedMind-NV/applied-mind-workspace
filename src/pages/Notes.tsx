@@ -17,6 +17,7 @@ import {
   Loader2,
   Code2,
   ExternalLink,
+  Mic,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
@@ -37,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LectureUpload } from "@/components/LectureUpload";
+import { LectureRecorder } from "@/components/LectureRecorder";
 
 interface Folder {
   id: string;
@@ -71,6 +73,7 @@ export default function Notes() {
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
   const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
@@ -486,6 +489,13 @@ export default function Notes() {
               <Upload size={13} />
             </button>
             <button
+              onClick={() => setShowRecorder(true)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              title="Record Lecture"
+            >
+              <Mic size={13} />
+            </button>
+            <button
               onClick={createFolder}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
               title="New Folder"
@@ -713,6 +723,23 @@ export default function Notes() {
         folderId={null}
         onNoteCreated={async (noteId) => {
           // Reload notes and select the new one
+          const { data } = await supabase
+            .from("notes")
+            .select("*")
+            .eq("user_id", user!.id)
+            .order("updated_at", { ascending: false });
+          if (data) {
+            setNotes(data);
+            const created = data.find((n: any) => n.id === noteId);
+            if (created) selectNote(created);
+          }
+        }}
+      />
+      <LectureRecorder
+        open={showRecorder}
+        onOpenChange={setShowRecorder}
+        folderId={null}
+        onNoteCreated={async (noteId) => {
           const { data } = await supabase
             .from("notes")
             .select("*")
