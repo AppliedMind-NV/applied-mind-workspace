@@ -130,8 +130,8 @@ export default function CodeLab() {
   const saveProject = async () => {
     if (!selectedId) return;
     setSaving(true);
-    await supabase.from("code_projects").update({ title, code, language }).eq("id", selectedId);
-    setProjects((prev) => prev.map((p) => (p.id === selectedId ? { ...p, title, code, language } : p)));
+    await supabase.from("code_projects").update({ title, code, language, note_id: noteId }).eq("id", selectedId);
+    setProjects((prev) => prev.map((p) => (p.id === selectedId ? { ...p, title, code, language, note_id: noteId } : p)));
     setSaving(false);
     toast({ title: "Project saved" });
   };
