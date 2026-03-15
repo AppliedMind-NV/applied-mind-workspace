@@ -212,6 +212,16 @@ export default function Dashboard() {
           priority: "high" as const,
         }]
       : []),
+    ...(practiceCount > 0 && staleNotes.length > 0
+      ? [{
+          key: "practice-recommend",
+          icon: HelpCircle,
+          label: `Practice questions on recent topics`,
+          sublabel: `${practiceCount} question${practiceCount !== 1 ? "s" : ""} available`,
+          action: () => navigate("/practice"),
+          priority: "high" as const,
+        }]
+      : []),
     ...reviewTopics.map((topic) => ({
       key: `review-${topic.noteId}`,
       icon: RotateCcw,
@@ -229,6 +239,8 @@ export default function Dashboard() {
       priority: "low" as const,
     })),
   ].slice(0, 5);
+
+  const totalReviewItems = flashcardsDue + staleNotes.length;
 
   const allCaughtUp = studyPlanItems.length === 0 && !loading;
 
