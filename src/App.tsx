@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import Notes from "@/pages/Notes";
 import Flashcards from "@/pages/Flashcards";
 import Practice from "@/pages/Practice";
+import QuickReview from "@/pages/QuickReview";
 import CodeLab from "@/pages/CodeLab";
 import Study from "@/pages/Study";
 import SettingsPage from "@/pages/Settings";
