@@ -102,6 +102,7 @@ export default function CodeLab() {
     setCode(p.code);
     setTitle(p.title);
     setLanguage(p.language || "python");
+    setNoteId(p.note_id);
     setOutput("▸ Click Run to execute code.");
   };
 
