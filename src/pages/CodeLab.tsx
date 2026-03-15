@@ -146,36 +146,52 @@ export default function CodeLab() {
     }
   };
 
-  const runCode = () => {
-    if (!code.trim()) return;
+  const runCode = async () => {
+    if (!code.trim() || !selectedId) return;
     setRunning(true);
-    const lines = code.split("\n");
-    const outputLines: string[] = [];
-    let hasOutput = false;
+    setOutput("▸ Running…\n");
 
-    for (const line of lines) {
-      // Python print
-      const pyPrint = line.match(/^\s*print\s*\(\s*(?:f?(['"])(.*?)\1|(.*?))\s*\)\s*$/);
-      // JS console.log
-      const jsLog = line.match(/^\s*console\.log\s*\(\s*(['"])(.*?)\1\s*\)\s*;?\s*$/);
-
-      if (pyPrint) {
-        outputLines.push(pyPrint[2] || pyPrint[3] || "");
-        hasOutput = true;
-      } else if (jsLog) {
-        outputLines.push(jsLog[2]);
-        hasOutput = true;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setOutput("▸ Error: You must be logged in to run code.");
+        setRunning(false);
+        return;
       }
-    }
 
-    setTimeout(() => {
-      if (hasOutput) {
-        setOutput(outputLines.join("\n") + "\n\n▸ Process finished (simulated).");
-      } else {
-        setOutput("▸ Code executed (simulated). No output detected.\n▸ Full sandboxed execution coming soon.");
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-code`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ code, language }),
+        }
+      );
+
+      const result = await resp.json();
+
+      if (!resp.ok) {
+        setOutput(`▸ Error: ${result.error || "Execution failed"}`);
+        setRunning(false);
+        return;
       }
+
+      const parts: string[] = [];
+      if (result.stdout) parts.push(result.stdout.trimEnd());
+      if (result.stderr) parts.push(`⚠ ${result.stderr.trimEnd()}`);
+      if (parts.length === 0) parts.push("(no output)");
+      parts.push(
+        `\n▸ Process finished (exit code ${result.exitCode ?? 0}) — ${result.language} ${result.version}`
+      );
+      setOutput(parts.join("\n"));
+    } catch (err: any) {
+      setOutput(`▸ Error: ${err.message || "Network error"}`);
+    } finally {
       setRunning(false);
-    }, 500);
+    }
   };
 
   const clearOutput = () => setOutput("▸ Ready.");
