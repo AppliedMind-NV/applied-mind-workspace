@@ -7,8 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
-const ACCEPTED_EXTS = ["pdf", "txt", "md", "markdown"];
-const ACCEPTED_TYPES = ["application/pdf", "text/plain", "text/markdown", "text/x-markdown"];
+const ACCEPTED_EXTS = ["pdf", "txt", "md", "markdown", "docx", "pptx"];
+const ACCEPTED_TYPES = [
+  "application/pdf", "text/plain", "text/markdown", "text/x-markdown",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+];
 const MAX_SIZE = 10 * 1024 * 1024;
 const MAX_FILES = 10;
 
@@ -81,7 +85,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     });
 
     if (skipped > 0) {
-      toast({ title: `${skipped} file(s) skipped`, description: "Only PDF, TXT, and Markdown files are supported.", variant: "destructive" });
+      toast({ title: `${skipped} file(s) skipped`, description: "Only PDF, DOCX, PPTX, TXT, and Markdown files are supported.", variant: "destructive" });
     }
   }, []);
 
@@ -109,10 +113,44 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
     return pages.join("\n\n");
   };
 
+  const extractTextFromDocx = async (file: File): Promise<string> => {
+    const mammoth = await import("mammoth");
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  };
+
+  const extractTextFromPptx = async (file: File): Promise<string> => {
+    const JSZip = (await import("jszip")).default;
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const slideFiles = Object.keys(zip.files)
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/slide(\d+)/)?.[1] || "0");
+        const numB = parseInt(b.match(/slide(\d+)/)?.[1] || "0");
+        return numA - numB;
+      });
+
+    const pages: string[] = [];
+    for (const slidePath of slideFiles) {
+      const xml = await zip.files[slidePath].async("text");
+      const textContent = xml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (textContent) pages.push(textContent);
+    }
+    return pages.join("\n\n");
+  };
+
   const extractText = async (file: File): Promise<string> => {
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (ext === "pdf" || file.type === "application/pdf") {
       return extractTextFromPdf(file);
+    }
+    if (ext === "docx" || file.type.includes("wordprocessingml")) {
+      return extractTextFromDocx(file);
+    }
+    if (ext === "pptx" || file.type.includes("presentationml")) {
+      return extractTextFromPptx(file);
     }
     return file.text();
   };
@@ -257,7 +295,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
             Import Lectures
           </DialogTitle>
           <DialogDescription>
-            Upload up to {MAX_FILES} files (PDF, TXT, Markdown) to auto-generate study notes.
+            Upload up to {MAX_FILES} files (PDF, DOCX, PPTX, TXT, Markdown) to auto-generate study notes.
           </DialogDescription>
         </DialogHeader>
 
@@ -279,7 +317,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
             <input
               ref={inputRef}
               type="file"
-              accept=".pdf,.txt,.md,.markdown"
+              accept=".pdf,.txt,.md,.markdown,.docx,.pptx"
               multiple
               className="hidden"
               onChange={(e) => {
@@ -292,7 +330,7 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
               Drop files here or <span className="text-primary font-medium">browse</span>
             </p>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              PDF, TXT, or Markdown • Max 10MB each • Up to {MAX_FILES} files
+              PDF, DOCX, PPTX, TXT, or Markdown • Max 10MB each • Up to {MAX_FILES} files
             </p>
           </div>
         )}
