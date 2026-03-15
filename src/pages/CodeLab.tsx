@@ -118,7 +118,7 @@ export default function CodeLab() {
         code: starter,
         language: selectedLang,
       })
-      .select("id, title, code, language")
+      .select("id, title, code, language, note_id")
       .single();
     if (data) {
       setProjects((prev) => [data, ...prev]);
