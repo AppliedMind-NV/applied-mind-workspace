@@ -42,6 +42,9 @@ export default function CodeLab() {
   const [running, setRunning] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("projects");
+  const [noteId, setNoteId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<NoteOption[]>([]);
+  const [showNoteLinkMenu, setShowNoteLinkMenu] = useState(false);
   const aiRef = useRef<CodeAIPanelRef>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
