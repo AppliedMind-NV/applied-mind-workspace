@@ -38,7 +38,7 @@ export default function StudySounds({ compact = false }: StudySoundsProps) {
         {sounds.map((sound) => {
           const Icon = sound.icon;
           const isActive = active === sound.id;
-          const isLoading = loading && active !== sound.id && !isActive;
+          const isLoading = loading && sound.id !== "Silence";
           return (
             <button
               key={sound.id}

@@ -123,14 +123,39 @@ export function useAmbientSound() {
             title: "Generating sound…",
             description: `Creating ${sound} ambience. This only happens once.`,
           });
-          url = await triggerGeneration(key);
+          try {
+            url = await triggerGeneration(key);
+          } catch (genErr) {
+            console.error("Generation failed:", genErr);
+            toast({
+              title: "Generation failed",
+              description: `Could not generate ${sound}. Try again from Settings.`,
+              variant: "destructive",
+            });
+            setActive(null);
+            setLoading(false);
+            return;
+          }
         }
 
-        // Play from storage URL
+        // Play from storage URL with error handling
         const audio = new Audio(url);
         audio.loop = true;
         audio.volume = volume;
         audio.crossOrigin = "anonymous";
+
+        // Add error handler for load failures
+        audio.addEventListener("error", () => {
+          console.error("Audio load error for:", sound, audio.error);
+          toast({
+            title: "Playback failed",
+            description: `Could not load ${sound} audio. Try regenerating in Settings.`,
+            variant: "destructive",
+          });
+          setActive(null);
+          audioRef.current = null;
+        });
+
         audioRef.current = audio;
         await audio.play();
         setActive(sound);
