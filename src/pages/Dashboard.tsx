@@ -70,6 +70,7 @@ export default function Dashboard() {
     if (!user) return;
 
     const load = async () => {
+      try {
       const now = new Date().toISOString();
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
@@ -177,7 +178,11 @@ export default function Dashboard() {
       }
       setReviewTopics(Array.from(topicMap.values()).slice(0, 4));
 
-      setLoading(false);
+      } catch (err: any) {
+        console.error("Dashboard load error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     load();

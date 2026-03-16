@@ -51,22 +51,32 @@ export default function CodeLab() {
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [projRes, notesRes] = await Promise.all([
-        supabase.from("code_projects").select("id, title, code, language, note_id").order("updated_at", { ascending: false }),
-        supabase.from("notes").select("id, title").order("updated_at", { ascending: false }),
-      ]);
-      if (projRes.data) {
-        setProjects(projRes.data);
-        if (projRes.data.length > 0) {
-          setSelectedId(projRes.data[0].id);
-          setCode(projRes.data[0].code);
-          setTitle(projRes.data[0].title);
-          setLanguage(projRes.data[0].language || "python");
-          setNoteId(projRes.data[0].note_id);
+      try {
+        const [projRes, notesRes] = await Promise.all([
+          supabase.from("code_projects").select("id, title, code, language, note_id").order("updated_at", { ascending: false }),
+          supabase.from("notes").select("id, title").order("updated_at", { ascending: false }),
+        ]);
+        if (projRes.error) {
+          console.error("Failed to load projects:", projRes.error);
+          toast({ title: "Failed to load projects", description: projRes.error.message, variant: "destructive" });
         }
+        if (projRes.data) {
+          setProjects(projRes.data);
+          if (projRes.data.length > 0) {
+            setSelectedId(projRes.data[0].id);
+            setCode(projRes.data[0].code);
+            setTitle(projRes.data[0].title);
+            setLanguage(projRes.data[0].language || "python");
+            setNoteId(projRes.data[0].note_id);
+          }
+        }
+        if (notesRes.data) setNotes(notesRes.data);
+      } catch (err: any) {
+        console.error("CodeLab load error:", err);
+        toast({ title: "Error loading Code Lab", description: err.message || "Please try refreshing.", variant: "destructive" });
+      } finally {
+        setLoading(false);
       }
-      if (notesRes.data) setNotes(notesRes.data);
-      setLoading(false);
     };
     load();
   }, [user]);

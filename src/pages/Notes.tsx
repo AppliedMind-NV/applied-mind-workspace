@@ -93,26 +93,39 @@ export default function Notes() {
   useEffect(() => {
     if (!user) return;
     const fetchAll = async () => {
-      const [foldersRes, notesRes] = await Promise.all([
-        supabase.from("folders").select("id, name, created_at").order("name"),
-        supabase
-          .from("notes")
-          .select("id, title, content, updated_at, folder_id")
-          .order("updated_at", { ascending: false }),
-      ]);
-      if (foldersRes.data) {
-        setFolders(foldersRes.data as Folder[]);
-        // Expand all folders by default
-        setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
-      }
-      if (notesRes.data) {
-        setNotes(notesRes.data as Note[]);
-        if (!selectedNote && notesRes.data.length > 0) {
-          const first = notesRes.data[0] as Note;
-          selectNote(first);
+      try {
+        const [foldersRes, notesRes] = await Promise.all([
+          supabase.from("folders").select("id, name, created_at").order("name"),
+          supabase
+            .from("notes")
+            .select("id, title, content, updated_at, folder_id")
+            .order("updated_at", { ascending: false }),
+        ]);
+        if (foldersRes.error) {
+          console.error("Failed to load folders:", foldersRes.error);
+          toast({ title: "Failed to load folders", description: foldersRes.error.message, variant: "destructive" });
         }
+        if (notesRes.error) {
+          console.error("Failed to load notes:", notesRes.error);
+          toast({ title: "Failed to load notes", description: notesRes.error.message, variant: "destructive" });
+        }
+        if (foldersRes.data) {
+          setFolders(foldersRes.data as Folder[]);
+          setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
+        }
+        if (notesRes.data) {
+          setNotes(notesRes.data as Note[]);
+          if (!selectedNote && notesRes.data.length > 0) {
+            const first = notesRes.data[0] as Note;
+            selectNote(first);
+          }
+        }
+      } catch (err: any) {
+        console.error("Notes fetch error:", err);
+        toast({ title: "Error loading data", description: err.message || "Please try refreshing.", variant: "destructive" });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchAll();
   }, [user]);
@@ -167,12 +180,17 @@ export default function Notes() {
 
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
-      if (saveTimeout) clearTimeout(saveTimeout);
+    if (saveTimeout) clearTimeout(saveTimeout);
       const timeout = setTimeout(async () => {
-        await supabase
+        const { error } = await supabase
           .from("notes")
           .update({ title: newTitle || "Untitled", content: newContent })
           .eq("id", noteId);
+        if (error) {
+          console.error("Autosave failed:", error);
+          toast({ title: "Autosave failed", description: error.message, variant: "destructive" });
+          return;
+        }
         setNotes((prev) =>
           prev.map((n) =>
             n.id === noteId
@@ -728,7 +746,7 @@ export default function Notes() {
                 {linkedProjects.map((proj) => (
                   <button
                     key={proj.id}
-                    onClick={() => navigate("/codelab")}
+                    onClick={() => navigate("/code-lab")}
                     className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent text-xs hover:bg-accent/80 transition-colors"
                   >
                     <span className="font-medium">{proj.title}</span>
