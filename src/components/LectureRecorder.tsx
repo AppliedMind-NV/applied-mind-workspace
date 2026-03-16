@@ -9,6 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
+const MAX_DURATION = 25 * 60; // 25 minutes in seconds
+const WARN_THRESHOLD = 20 * 60; // warn at 20 minutes
 
 type RecordingState = "idle" | "recording" | "paused" | "transcribing" | "generating" | "saving" | "done" | "error";
 
