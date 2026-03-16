@@ -239,19 +239,36 @@ export default function Notes() {
 
   // Note CRUD
   const createNote = async (folderId: string | null = null) => {
-    if (!user) return;
-    const insert: any = { user_id: user.id, title: "Untitled", content: { body: "" } };
-    if (folderId) insert.folder_id = folderId;
-    const { data } = await supabase
-      .from("notes")
-      .insert(insert)
-      .select("id, title, content, updated_at, folder_id")
-      .single();
-    if (data) {
-      const note = data as Note;
-      setNotes((prev) => [note, ...prev]);
-      selectNote(note);
-      if (folderId) setExpandedFolders((prev) => new Set([...prev, folderId]));
+    if (!user) {
+      toast({ title: "Please sign in", description: "You must be logged in to create a note.", variant: "destructive" });
+      return;
+    }
+    try {
+      const insert: any = {
+        user_id: user.id,
+        title: "Untitled",
+        content: { type: "doc", content: [{ type: "paragraph" }] },
+      };
+      if (folderId) insert.folder_id = folderId;
+      const { data, error } = await supabase
+        .from("notes")
+        .insert(insert)
+        .select("id, title, content, updated_at, folder_id")
+        .single();
+      if (error) {
+        console.error("Failed to create note:", error);
+        toast({ title: "Failed to create note", description: error.message, variant: "destructive" });
+        return;
+      }
+      if (data) {
+        const note = data as Note;
+        setNotes((prev) => [note, ...prev]);
+        selectNote(note);
+        if (folderId) setExpandedFolders((prev) => new Set([...prev, folderId]));
+      }
+    } catch (err: any) {
+      console.error("Create note error:", err);
+      toast({ title: "Error", description: err.message || "Could not create note", variant: "destructive" });
     }
   };
 
