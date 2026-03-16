@@ -95,7 +95,16 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
       setElapsed(0);
 
       timerRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
+        setElapsed((prev) => {
+          const next = prev + 1;
+          if (next >= MAX_DURATION) {
+            // Auto-stop at limit
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+              mediaRecorderRef.current.stop();
+            }
+          }
+          return next;
+        });
       }, 1000);
     } catch (err: any) {
       toast({
