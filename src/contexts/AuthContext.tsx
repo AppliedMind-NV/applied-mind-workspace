@@ -10,8 +10,10 @@ interface AuthContextType {
   loading: boolean;
   role: UserRole;
   avatarUrl: string | null;
+  onboardingCompleted: boolean;
   setRole: (role: UserRole) => Promise<void>;
   refreshAvatar: (url: string) => void;
+  completeOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
