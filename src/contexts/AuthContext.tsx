@@ -10,8 +10,10 @@ interface AuthContextType {
   loading: boolean;
   role: UserRole;
   avatarUrl: string | null;
+  onboardingCompleted: boolean;
   setRole: (role: UserRole) => Promise<void>;
   refreshAvatar: (url: string) => void;
+  completeOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -21,8 +23,10 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   role: "student",
   avatarUrl: null,
+  onboardingCompleted: true,
   setRole: async () => {},
   refreshAvatar: () => {},
+  completeOnboarding: async () => {},
   signOut: async () => {},
 });
 
@@ -33,12 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [role, setRoleState] = useState<UserRole>("student");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
 
   // Load profile role from database
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("role, avatar_url")
+      .select("role, avatar_url, onboarding_completed")
       .eq("id", userId)
       .single();
     if (data?.role) {
@@ -47,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data?.avatar_url) {
       setAvatarUrl(data.avatar_url as string);
     }
+    setOnboardingCompleted(data?.onboarding_completed ?? true);
   }, []);
 
   useEffect(() => {
@@ -87,14 +93,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAvatar = (url: string) => setAvatarUrl(url);
 
+  const completeOnboarding = async () => {
+    const user = session?.user;
+    if (!user) return;
+    setOnboardingCompleted(true);
+    await supabase
+      .from("profiles")
+      .update({ onboarding_completed: true })
+      .eq("id", user.id);
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoleState("student");
     setAvatarUrl(null);
+    setOnboardingCompleted(true);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, avatarUrl, setRole, refreshAvatar, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, avatarUrl, onboardingCompleted, setRole, refreshAvatar, completeOnboarding, signOut }}>
       {children}
     </AuthContext.Provider>
   );

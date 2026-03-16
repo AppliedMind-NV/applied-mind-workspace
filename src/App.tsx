@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
+import { Onboarding } from "@/components/Onboarding";
 import Dashboard from "@/pages/Dashboard";
 import Notes from "@/pages/Notes";
 import Flashcards from "@/pages/Flashcards";
@@ -20,9 +21,10 @@ import NotFound from "@/pages/NotFound";
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
+  const { session, loading, onboardingCompleted, completeOnboarding } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center text-muted-foreground text-sm">Loading…</div>;
   if (!session) return <Navigate to="/auth" replace />;
+  if (!onboardingCompleted) return <Onboarding onComplete={completeOnboarding} />;
   return <>{children}</>;
 }
 
