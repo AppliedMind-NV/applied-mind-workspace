@@ -192,18 +192,32 @@ export default function Notes() {
 
   // Folder CRUD
   const createFolder = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("folders")
-      .insert({ user_id: user.id, name: "New Folder" })
-      .select("id, name, created_at")
-      .single();
-    if (data) {
-      const folder = data as Folder;
-      setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
-      setExpandedFolders((prev) => new Set([...prev, folder.id]));
-      setEditingFolderId(folder.id);
-      setEditingFolderName(folder.name);
+    if (!user) {
+      toast({ title: "Please sign in", description: "You must be logged in to create a folder.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("folders")
+        .insert({ user_id: user.id, name: "New Folder" })
+        .select("id, name, created_at")
+        .single();
+      if (error) {
+        console.error("Failed to create folder:", error);
+        toast({ title: "Failed to create folder", description: error.message, variant: "destructive" });
+        return;
+      }
+      if (data) {
+        const folder = data as Folder;
+        setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
+        setExpandedFolders((prev) => new Set([...prev, folder.id]));
+        setEditingFolderId(folder.id);
+        setEditingFolderName(folder.name);
+        toast({ title: "Folder created" });
+      }
+    } catch (err: any) {
+      console.error("Create folder error:", err);
+      toast({ title: "Error", description: err.message || "Could not create folder", variant: "destructive" });
     }
   };
 
