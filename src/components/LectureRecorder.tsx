@@ -244,6 +244,7 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
   const statusText: Record<RecordingState, string> = {
     idle: "Ready to record",
     recording: "Recording…",
+    paused: "Paused",
     transcribing: "Transcribing audio…",
     generating: "Generating notes…",
     saving: "Saving…",
