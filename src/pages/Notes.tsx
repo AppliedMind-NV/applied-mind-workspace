@@ -86,6 +86,8 @@ export default function Notes() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [pendingDeleteNote, setPendingDeleteNote] = useState<{ id: string; title: string } | null>(null);
+  const [pendingDeleteFolder, setPendingDeleteFolder] = useState<{ id: string; name: string; noteCount: number } | null>(null);
 
   // Fetch folders and notes
   useEffect(() => {
