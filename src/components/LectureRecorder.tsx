@@ -275,21 +275,41 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
             </button>
           )}
 
-          {state === "recording" && (
+          {(state === "recording" || state === "paused") && (
             <div className="flex flex-col items-center gap-3 w-full">
               <AudioWaveform stream={streamRef.current} isRecording={state === "recording"} />
-              <div className="flex items-center gap-4">
+              {state === "paused" && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted">
+                  <Pause size={12} className="text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">Paused</span>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
                 <div className="text-2xl font-mono font-semibold tabular-nums text-foreground">
                   {formatTime(elapsed)}
                 </div>
                 <button
-                  onClick={stopRecording}
-                  className="w-12 h-12 rounded-full bg-destructive flex items-center justify-center transition-colors hover:bg-destructive/90"
+                  onClick={state === "recording" ? pauseRecording : resumeRecording}
+                  className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
+                  title={state === "recording" ? "Pause" : "Resume"}
                 >
-                  <Square size={20} className="text-destructive-foreground" />
+                  {state === "recording" ? (
+                    <Pause size={16} className="text-foreground" />
+                  ) : (
+                    <Play size={16} className="text-foreground ml-0.5" />
+                  )}
+                </button>
+                <button
+                  onClick={stopRecording}
+                  className="w-10 h-10 rounded-full bg-destructive flex items-center justify-center transition-colors hover:bg-destructive/90"
+                  title="Stop recording"
+                >
+                  <Square size={16} className="text-destructive-foreground" />
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Click stop to finish recording</p>
+              <p className="text-xs text-muted-foreground">
+                {state === "recording" ? "Pause to skip breaks, stop to finish" : "Resume when ready, or stop to finish"}
+              </p>
             </div>
           )}
 
