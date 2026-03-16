@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, Square, Loader2, Sparkles, CheckCircle2, AlertCircle, Pause, Play } from "lucide-react";
+import { Mic, Square, Loader2, Sparkles, CheckCircle2, AlertCircle, Pause, Play, Clock } from "lucide-react";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -9,6 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
+const MAX_DURATION = 25 * 60; // 25 minutes in seconds
+const WARN_THRESHOLD = 20 * 60; // warn at 20 minutes
 
 type RecordingState = "idle" | "recording" | "paused" | "transcribing" | "generating" | "saving" | "done" | "error";
 
@@ -93,7 +95,16 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
       setElapsed(0);
 
       timerRef.current = setInterval(() => {
-        setElapsed((prev) => prev + 1);
+        setElapsed((prev) => {
+          const next = prev + 1;
+          if (next >= MAX_DURATION) {
+            // Auto-stop at limit
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+              mediaRecorderRef.current.stop();
+            }
+          }
+          return next;
+        });
       }, 1000);
     } catch (err: any) {
       toast({
@@ -285,8 +296,32 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
                   <span className="text-xs font-medium text-muted-foreground">Paused</span>
                 </div>
               )}
+              {/* Duration warning */}
+              {elapsed >= WARN_THRESHOLD && (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                  elapsed >= MAX_DURATION - 60
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-accent text-accent-foreground"
+                }`}>
+                  <Clock size={12} />
+                  <span>
+                    {elapsed >= MAX_DURATION - 60
+                      ? `Auto-stop in ${formatTime(MAX_DURATION - elapsed)}`
+                      : `${formatTime(MAX_DURATION - elapsed)} remaining`}
+                  </span>
+                </div>
+              )}
+              {/* Duration progress bar */}
+              <div className="w-full">
+                <Progress
+                  value={(elapsed / MAX_DURATION) * 100}
+                  className={`h-1 ${elapsed >= WARN_THRESHOLD ? "[&>div]:bg-destructive" : ""}`}
+                />
+              </div>
               <div className="flex items-center gap-3">
-                <div className="text-2xl font-mono font-semibold tabular-nums text-foreground">
+                <div className={`text-2xl font-mono font-semibold tabular-nums ${
+                  elapsed >= MAX_DURATION - 60 ? "text-destructive" : "text-foreground"
+                }`}>
                   {formatTime(elapsed)}
                 </div>
                 <button
