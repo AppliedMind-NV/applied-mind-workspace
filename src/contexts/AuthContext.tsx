@@ -93,10 +93,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAvatar = (url: string) => setAvatarUrl(url);
 
+  const completeOnboarding = async () => {
+    const user = session?.user;
+    if (!user) return;
+    setOnboardingCompleted(true);
+    await supabase
+      .from("profiles")
+      .update({ onboarding_completed: true })
+      .eq("id", user.id);
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoleState("student");
     setAvatarUrl(null);
+    setOnboardingCompleted(true);
   };
 
   return (
