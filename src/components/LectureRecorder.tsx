@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
 
-type RecordingState = "idle" | "recording" | "transcribing" | "generating" | "saving" | "done" | "error";
+type RecordingState = "idle" | "recording" | "paused" | "transcribing" | "generating" | "saving" | "done" | "error";
 
 interface LectureRecorderProps {
   open: boolean;
