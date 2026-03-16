@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Mic, Square, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mic, Square, Loader2, Sparkles, CheckCircle2, AlertCircle, Pause, Play } from "lucide-react";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
 
-type RecordingState = "idle" | "recording" | "transcribing" | "generating" | "saving" | "done" | "error";
+type RecordingState = "idle" | "recording" | "paused" | "transcribing" | "generating" | "saving" | "done" | "error";
 
 interface LectureRecorderProps {
   open: boolean;
@@ -49,7 +49,7 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
 
   const handleClose = (v: boolean) => {
     if (state === "transcribing" || state === "generating" || state === "saving") return;
-    if (state === "recording") stopRecording();
+    if (state === "recording" || state === "paused") stopRecording();
     if (!v) reset();
     onOpenChange(v);
   };
@@ -101,6 +101,27 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
         description: "Please allow microphone access to record lectures.",
         variant: "destructive",
       });
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.pause();
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      setState("paused");
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current?.state === "paused") {
+      mediaRecorderRef.current.resume();
+      timerRef.current = setInterval(() => {
+        setElapsed((prev) => prev + 1);
+      }, 1000);
+      setState("recording");
     }
   };
 
@@ -223,6 +244,7 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
   const statusText: Record<RecordingState, string> = {
     idle: "Ready to record",
     recording: "Recording…",
+    paused: "Paused",
     transcribing: "Transcribing audio…",
     generating: "Generating notes…",
     saving: "Saving…",
@@ -254,21 +276,41 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
             </button>
           )}
 
-          {state === "recording" && (
+          {(state === "recording" || state === "paused") && (
             <div className="flex flex-col items-center gap-3 w-full">
               <AudioWaveform stream={streamRef.current} isRecording={state === "recording"} />
-              <div className="flex items-center gap-4">
+              {state === "paused" && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted">
+                  <Pause size={12} className="text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground">Paused</span>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
                 <div className="text-2xl font-mono font-semibold tabular-nums text-foreground">
                   {formatTime(elapsed)}
                 </div>
                 <button
-                  onClick={stopRecording}
-                  className="w-12 h-12 rounded-full bg-destructive flex items-center justify-center transition-colors hover:bg-destructive/90"
+                  onClick={state === "recording" ? pauseRecording : resumeRecording}
+                  className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
+                  title={state === "recording" ? "Pause" : "Resume"}
                 >
-                  <Square size={20} className="text-destructive-foreground" />
+                  {state === "recording" ? (
+                    <Pause size={16} className="text-foreground" />
+                  ) : (
+                    <Play size={16} className="text-foreground ml-0.5" />
+                  )}
+                </button>
+                <button
+                  onClick={stopRecording}
+                  className="w-10 h-10 rounded-full bg-destructive flex items-center justify-center transition-colors hover:bg-destructive/90"
+                  title="Stop recording"
+                >
+                  <Square size={16} className="text-destructive-foreground" />
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Click stop to finish recording</p>
+              <p className="text-xs text-muted-foreground">
+                {state === "recording" ? "Pause to skip breaks, stop to finish" : "Resume when ready, or stop to finish"}
+              </p>
             </div>
           )}
 
