@@ -741,7 +741,7 @@ export default function Notes() {
                 {linkedProjects.map((proj) => (
                   <button
                     key={proj.id}
-                    onClick={() => navigate("/codelab")}
+                    onClick={() => navigate("/code-lab")}
                     className="flex items-center gap-1 px-2 py-1 rounded-md bg-accent text-xs hover:bg-accent/80 transition-colors"
                   >
                     <span className="font-medium">{proj.title}</span>
