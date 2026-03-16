@@ -296,8 +296,32 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
                   <span className="text-xs font-medium text-muted-foreground">Paused</span>
                 </div>
               )}
+              {/* Duration warning */}
+              {elapsed >= WARN_THRESHOLD && (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+                  elapsed >= MAX_DURATION - 60
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-accent text-accent-foreground"
+                }`}>
+                  <Clock size={12} />
+                  <span>
+                    {elapsed >= MAX_DURATION - 60
+                      ? `Auto-stop in ${formatTime(MAX_DURATION - elapsed)}`
+                      : `${formatTime(MAX_DURATION - elapsed)} remaining`}
+                  </span>
+                </div>
+              )}
+              {/* Duration progress bar */}
+              <div className="w-full">
+                <Progress
+                  value={(elapsed / MAX_DURATION) * 100}
+                  className={`h-1 ${elapsed >= WARN_THRESHOLD ? "[&>div]:bg-destructive" : ""}`}
+                />
+              </div>
               <div className="flex items-center gap-3">
-                <div className="text-2xl font-mono font-semibold tabular-nums text-foreground">
+                <div className={`text-2xl font-mono font-semibold tabular-nums ${
+                  elapsed >= MAX_DURATION - 60 ? "text-destructive" : "text-foreground"
+                }`}>
                   {formatTime(elapsed)}
                 </div>
                 <button
