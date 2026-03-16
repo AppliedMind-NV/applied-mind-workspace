@@ -255,17 +255,20 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
           )}
 
           {state === "recording" && (
-            <div className="flex flex-col items-center gap-3">
-              <button
-                onClick={stopRecording}
-                className="w-20 h-20 rounded-full bg-destructive flex items-center justify-center animate-pulse transition-colors hover:bg-destructive/90"
-              >
-                <Square size={28} className="text-destructive-foreground" />
-              </button>
-              <div className="text-2xl font-mono font-semibold tabular-nums text-foreground">
-                {formatTime(elapsed)}
+            <div className="flex flex-col items-center gap-3 w-full">
+              <AudioWaveform stream={streamRef.current} isRecording={state === "recording"} />
+              <div className="flex items-center gap-4">
+                <div className="text-2xl font-mono font-semibold tabular-nums text-foreground">
+                  {formatTime(elapsed)}
+                </div>
+                <button
+                  onClick={stopRecording}
+                  className="w-12 h-12 rounded-full bg-destructive flex items-center justify-center transition-colors hover:bg-destructive/90"
+                >
+                  <Square size={20} className="text-destructive-foreground" />
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground">Click to stop recording</p>
+              <p className="text-xs text-muted-foreground">Click stop to finish recording</p>
             </div>
           )}
 
