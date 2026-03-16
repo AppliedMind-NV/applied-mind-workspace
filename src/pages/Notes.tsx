@@ -29,6 +29,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNoteContext } from "@/contexts/NoteContext";
 import { toast } from "@/hooks/use-toast";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -76,6 +86,8 @@ export default function Notes() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const [pendingDeleteNote, setPendingDeleteNote] = useState<{ id: string; title: string } | null>(null);
+  const [pendingDeleteFolder, setPendingDeleteFolder] = useState<{ id: string; name: string; noteCount: number } | null>(null);
 
   // Fetch folders and notes
   useEffect(() => {
@@ -475,7 +487,7 @@ export default function Notes() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           )}
-          <DropdownMenuItem className="text-xs text-destructive" onClick={() => deleteNote(note.id)}>
+          <DropdownMenuItem className="text-xs text-destructive" onClick={() => setPendingDeleteNote({ id: note.id, title: note.title })}>
             <Trash2 size={12} className="mr-2" />
             Delete
           </DropdownMenuItem>
@@ -639,7 +651,7 @@ export default function Notes() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-xs text-destructive"
-                          onClick={() => deleteFolder(folder.id)}
+                          onClick={() => setPendingDeleteFolder({ id: folder.id, name: folder.name, noteCount: notesInFolder(folder.id).length })}
                         >
                           <Trash2 size={12} className="mr-2" />
                           Delete
@@ -783,6 +795,56 @@ export default function Notes() {
           }
         }}
       />
+
+      {/* Delete Note Confirmation */}
+      <AlertDialog open={!!pendingDeleteNote} onOpenChange={(open) => !open && setPendingDeleteNote(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingDeleteNote?.title}" will be permanently deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDeleteNote) deleteNote(pendingDeleteNote.id);
+                setPendingDeleteNote(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Folder Confirmation */}
+      <AlertDialog open={!!pendingDeleteFolder} onOpenChange={(open) => !open && setPendingDeleteFolder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete folder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingDeleteFolder?.name}" will be permanently deleted.
+              {pendingDeleteFolder?.noteCount ? ` ${pendingDeleteFolder.noteCount} note${pendingDeleteFolder.noteCount > 1 ? "s" : ""} inside will be moved to Uncategorized.` : ""}
+              {" "}This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDeleteFolder) deleteFolder(pendingDeleteFolder.id);
+                setPendingDeleteFolder(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
