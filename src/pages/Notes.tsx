@@ -487,7 +487,7 @@ export default function Notes() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           )}
-          <DropdownMenuItem className="text-xs text-destructive" onClick={() => deleteNote(note.id)}>
+          <DropdownMenuItem className="text-xs text-destructive" onClick={() => setPendingDeleteNote({ id: note.id, title: note.title })}>
             <Trash2 size={12} className="mr-2" />
             Delete
           </DropdownMenuItem>
