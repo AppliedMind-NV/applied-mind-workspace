@@ -31,14 +31,22 @@ export default function Flashcards() {
 
   const fetchCards = async () => {
     if (!user) return;
-    const now = new Date().toISOString();
-    const [allRes, dueRes] = await Promise.all([
-      supabase.from("flashcards").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("flashcards").select("*").eq("user_id", user.id).lte("next_review", now).order("next_review", { ascending: true }),
-    ]);
-    setAllCards(allRes.data ?? []);
-    setDueCards(dueRes.data ?? []);
-    setLoading(false);
+    try {
+      const now = new Date().toISOString();
+      const [allRes, dueRes] = await Promise.all([
+        supabase.from("flashcards").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("flashcards").select("*").eq("user_id", user.id).lte("next_review", now).order("next_review", { ascending: true }),
+      ]);
+      if (allRes.error) console.error("Failed to load flashcards:", allRes.error);
+      if (dueRes.error) console.error("Failed to load due cards:", dueRes.error);
+      setAllCards(allRes.data ?? []);
+      setDueCards(dueRes.data ?? []);
+    } catch (err: any) {
+      console.error("Flashcards fetch error:", err);
+      toast({ title: "Failed to load flashcards", description: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchCards(); }, [user]);

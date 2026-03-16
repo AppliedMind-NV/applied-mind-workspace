@@ -180,12 +180,17 @@ export default function Notes() {
 
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
-      if (saveTimeout) clearTimeout(saveTimeout);
+    if (saveTimeout) clearTimeout(saveTimeout);
       const timeout = setTimeout(async () => {
-        await supabase
+        const { error } = await supabase
           .from("notes")
           .update({ title: newTitle || "Untitled", content: newContent })
           .eq("id", noteId);
+        if (error) {
+          console.error("Autosave failed:", error);
+          toast({ title: "Autosave failed", description: error.message, variant: "destructive" });
+          return;
+        }
         setNotes((prev) =>
           prev.map((n) =>
             n.id === noteId

@@ -41,18 +41,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load profile role from database
   const loadProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("role, avatar_url, onboarding_completed")
       .eq("id", userId)
-      .single();
-    if (data?.role) {
+      .maybeSingle();
+    if (error) {
+      console.error("Failed to load profile:", error);
+      return;
+    }
+    if (!data) {
+      // Profile not yet created by trigger — treat as new user
+      setOnboardingCompleted(false);
+      return;
+    }
+    if (data.role) {
       setRoleState(data.role as UserRole);
     }
-    if (data?.avatar_url) {
+    if (data.avatar_url) {
       setAvatarUrl(data.avatar_url as string);
     }
-    setOnboardingCompleted(data?.onboarding_completed ?? true);
+    setOnboardingCompleted(data.onboarding_completed ?? false);
   }, []);
 
   useEffect(() => {

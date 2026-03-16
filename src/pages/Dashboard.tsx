@@ -178,7 +178,11 @@ export default function Dashboard() {
       }
       setReviewTopics(Array.from(topicMap.values()).slice(0, 4));
 
-      setLoading(false);
+      } catch (err: any) {
+        console.error("Dashboard load error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     load();
