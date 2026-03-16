@@ -795,6 +795,56 @@ export default function Notes() {
           }
         }}
       />
+
+      {/* Delete Note Confirmation */}
+      <AlertDialog open={!!pendingDeleteNote} onOpenChange={(open) => !open && setPendingDeleteNote(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingDeleteNote?.title}" will be permanently deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDeleteNote) deleteNote(pendingDeleteNote.id);
+                setPendingDeleteNote(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Folder Confirmation */}
+      <AlertDialog open={!!pendingDeleteFolder} onOpenChange={(open) => !open && setPendingDeleteFolder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete folder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingDeleteFolder?.name}" will be permanently deleted.
+              {pendingDeleteFolder?.noteCount ? ` ${pendingDeleteFolder.noteCount} note${pendingDeleteFolder.noteCount > 1 ? "s" : ""} inside will be moved to Uncategorized.` : ""}
+              {" "}This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDeleteFolder) deleteFolder(pendingDeleteFolder.id);
+                setPendingDeleteFolder(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
