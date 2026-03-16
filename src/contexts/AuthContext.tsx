@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("role, avatar_url")
+      .select("role, avatar_url, onboarding_completed")
       .eq("id", userId)
       .single();
     if (data?.role) {
@@ -52,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data?.avatar_url) {
       setAvatarUrl(data.avatar_url as string);
     }
+    setOnboardingCompleted(data?.onboarding_completed ?? true);
   }, []);
 
   useEffect(() => {
