@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, Square, Loader2, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { AudioWaveform } from "@/components/AudioWaveform";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
