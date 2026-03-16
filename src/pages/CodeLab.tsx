@@ -107,23 +107,41 @@ export default function CodeLab() {
   };
 
   const createProject = async (lang?: string, initialCode?: string, initialTitle?: string) => {
-    if (!user) return;
+    if (!user) {
+      toast({ title: "Please sign in", description: "You must be logged in to create a project.", variant: "destructive" });
+      return;
+    }
     const selectedLang = lang || language;
     const starter = initialCode || LANGUAGES.find((l) => l.value === selectedLang)?.starter || "";
-    const { data } = await supabase
-      .from("code_projects")
-      .insert({
-        user_id: user.id,
-        title: initialTitle || "Untitled Project",
-        code: starter,
-        language: selectedLang,
-      })
-      .select("id, title, code, language, note_id")
-      .single();
-    if (data) {
-      setProjects((prev) => [data, ...prev]);
-      selectProject(data);
-      setSidebarTab("projects");
+    try {
+      const { data, error } = await supabase
+        .from("code_projects")
+        .insert({
+          user_id: user.id,
+          title: initialTitle || "Untitled Project",
+          code: starter,
+          language: selectedLang,
+        })
+        .select("id, title, code, language, note_id")
+        .single();
+      if (error) {
+        console.error("Failed to create project:", error);
+        toast({ title: "Failed to create project", description: error.message, variant: "destructive" });
+        return;
+      }
+      if (data) {
+        setProjects((prev) => [data, ...prev]);
+        setSelectedId(data.id);
+        setCode(data.code);
+        setTitle(data.title);
+        setLanguage(data.language || "python");
+        setNoteId(data.note_id);
+        setOutput("▸ Click Run to execute code.");
+        setSidebarTab("projects");
+      }
+    } catch (err: any) {
+      console.error("Create project error:", err);
+      toast({ title: "Error", description: err.message || "Could not create project", variant: "destructive" });
     }
   };
 
