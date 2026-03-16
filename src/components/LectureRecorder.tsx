@@ -49,7 +49,7 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
 
   const handleClose = (v: boolean) => {
     if (state === "transcribing" || state === "generating" || state === "saving") return;
-    if (state === "recording") stopRecording();
+    if (state === "recording" || state === "paused") stopRecording();
     if (!v) reset();
     onOpenChange(v);
   };
