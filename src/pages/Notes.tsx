@@ -651,7 +651,7 @@ export default function Notes() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-xs text-destructive"
-                          onClick={() => deleteFolder(folder.id)}
+                          onClick={() => setPendingDeleteFolder({ id: folder.id, name: folder.name, noteCount: notesInFolder(folder.id).length })}
                         >
                           <Trash2 size={12} className="mr-2" />
                           Delete
