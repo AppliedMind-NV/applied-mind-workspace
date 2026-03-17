@@ -131,33 +131,15 @@ serve(async (req) => {
     }
 
     // Log usage to ai_logs
-    const authHeader = req.headers.get("authorization");
-    if (authHeader) {
-      try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-        // Extract user from JWT
-        const token = authHeader.replace("Bearer ", "");
-        const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-        // Only log if it's a user token (not the anon key)
-        if (token !== anonKey) {
-          const userClient = createClient(supabaseUrl, anonKey!, {
-            global: { headers: { Authorization: `Bearer ${token}` } },
-          });
-          const { data: { user } } = await userClient.auth.getUser();
-          if (user) {
-            await supabase.from("ai_logs").insert({
-              user_id: user.id,
-              feature: `note-ai:${action || "chat"}`,
-            });
-          }
-        }
-      } catch (logErr) {
-        console.error("Failed to log AI usage:", logErr);
-        // Don't fail the request if logging fails
-      }
+    try {
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      await supabase.from("ai_logs").insert({
+        user_id: userId,
+        feature: `note-ai:${action || "chat"}`,
+      });
+    } catch (logErr) {
+      console.error("Failed to log AI usage:", logErr);
     }
 
     const isNonStreaming = NON_STREAMING_ACTIONS.has(action);
