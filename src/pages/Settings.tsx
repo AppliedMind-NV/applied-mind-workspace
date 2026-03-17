@@ -2,6 +2,7 @@ import { User, Moon, Sun, Shield, LogOut, Volume2, RefreshCw, Loader2 } from "lu
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import AvatarUpload from "@/components/AvatarUpload";
 
 const SOUND_LABELS: Record<string, string> = {
