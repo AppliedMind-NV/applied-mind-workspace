@@ -36,7 +36,7 @@ export default function CodeLab() {
   const [code, setCode] = useState("");
   const [title, setTitle] = useState("");
   const [language, setLanguage] = useState("python");
-  const [output, setOutput] = useState("▸ Click Run to execute code.\n▸ Sandboxed execution is coming soon — output is simulated for now.");
+  const [output, setOutput] = useState("▸ Click Run to execute code.\n▸ Powered by AI-assisted execution.");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
