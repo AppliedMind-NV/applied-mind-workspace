@@ -6,22 +6,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Piston API — free, no key required, fully sandboxed
-const PISTON_API = "https://emkc.org/api/v2/piston/execute";
+const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-// Language → Piston runtime mapping
-const LANGUAGE_MAP: Record<string, { language: string; version: string }> = {
-  python: { language: "python", version: "3.10.0" },
-  javascript: { language: "javascript", version: "18.15.0" },
-};
+// Language config
+const SUPPORTED_LANGUAGES = new Set(["python", "javascript"]);
 
 const MAX_CODE_LENGTH = 50_000; // 50KB
-const MAX_TIMEOUT_MS = 10_000; // 10s execution limit
+const MAX_TIMEOUT_MS = 30_000; // 30s for AI response
 
 // Simple in-memory rate limiter (per function instance)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 20; // requests per window
-const RATE_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT = 20;
+const RATE_WINDOW_MS = 60_000;
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
@@ -33,6 +29,22 @@ function checkRateLimit(userId: string): boolean {
   if (entry.count >= RATE_LIMIT) return false;
   entry.count++;
   return true;
+}
+
+function buildSystemPrompt(language: string): string {
+  return `You are a code execution engine. You must execute the provided ${language} code mentally and return ONLY the exact output that would appear in the terminal/console.
+
+RULES:
+- Return ONLY the raw program output (stdout), nothing else
+- If the code has errors, return the error message exactly as the ${language} interpreter/runtime would show it
+- Do NOT add explanations, comments, markdown formatting, or code blocks
+- Do NOT wrap output in backticks or quotes
+- If the code produces no output, return exactly: (no output)
+- For print/console.log statements, return each output on its own line
+- Simulate the code execution accurately — compute actual values, don't approximate
+- If the code has an infinite loop, return: RuntimeError: maximum recursion depth exceeded (or equivalent)
+- Handle imports/requires as if standard libraries are available
+- Be precise with numbers, string formatting, and whitespace`;
 }
 
 Deno.serve(async (req) => {
@@ -100,39 +112,50 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!language || typeof language !== "string" || !LANGUAGE_MAP[language]) {
+    if (!language || typeof language !== "string" || !SUPPORTED_LANGUAGES.has(language)) {
       return new Response(
-        JSON.stringify({ error: `Unsupported language. Supported: ${Object.keys(LANGUAGE_MAP).join(", ")}` }),
+        JSON.stringify({ error: `Unsupported language. Supported: ${[...SUPPORTED_LANGUAGES].join(", ")}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const runtime = LANGUAGE_MAP[language];
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableApiKey) {
+      console.error("LOVABLE_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ error: "Code execution service is not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Call Piston API with timeout
+    // Call AI Gateway with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), MAX_TIMEOUT_MS);
 
-    let pistonResponse: Response;
+    let aiResponse: Response;
     try {
-      pistonResponse = await fetch(PISTON_API, {
+      aiResponse = await fetch(AI_GATEWAY_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${lovableApiKey}`,
+        },
         signal: controller.signal,
         body: JSON.stringify({
-          language: runtime.language,
-          version: runtime.version,
-          files: [{ name: `main.${language === "python" ? "py" : "js"}`, content: code }],
-          run_timeout: 5000, // 5s execution time limit on Piston side
-          compile_memory_limit: 256_000_000, // 256MB
-          run_memory_limit: 256_000_000,
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: buildSystemPrompt(language) },
+            { role: "user", content: code },
+          ],
+          temperature: 0,
+          max_tokens: 4096,
         }),
       });
     } catch (err) {
       clearTimeout(timeout);
       if (err instanceof DOMException && err.name === "AbortError") {
         return new Response(
-          JSON.stringify({ error: "Code execution timed out (10s limit)" }),
+          JSON.stringify({ error: "Code execution timed out (30s limit)" }),
           { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -140,30 +163,30 @@ Deno.serve(async (req) => {
     }
     clearTimeout(timeout);
 
-    if (!pistonResponse.ok) {
-      const errText = await pistonResponse.text();
-      console.error("Piston API error:", pistonResponse.status, errText);
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text();
+      console.error("AI Gateway error:", aiResponse.status, errText);
       return new Response(
         JSON.stringify({ error: "Code execution service is temporarily unavailable. Please try again." }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const result = await pistonResponse.json();
+    const result = await aiResponse.json();
+    const output = result.choices?.[0]?.message?.content ?? "(no output)";
 
-    // Format response
-    const stdout = result.run?.stdout || "";
-    const stderr = result.run?.stderr || "";
-    const exitCode = result.run?.code ?? null;
-    const compileError = result.compile?.stderr || "";
+    // Check if the AI detected an error in the code
+    const isError = output.includes("Error:") || output.includes("Traceback") || 
+                    output.includes("SyntaxError") || output.includes("TypeError") ||
+                    output.includes("ReferenceError") || output.includes("NameError");
 
     return new Response(
       JSON.stringify({
-        stdout,
-        stderr: compileError || stderr,
-        exitCode,
-        language: runtime.language,
-        version: runtime.version,
+        stdout: isError ? "" : output,
+        stderr: isError ? output : "",
+        exitCode: isError ? 1 : 0,
+        language,
+        version: language === "python" ? "3.12 (AI)" : "ES2024 (AI)",
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
