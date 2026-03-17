@@ -152,10 +152,11 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
       const formData = new FormData();
       formData.append("audio", blob, "recording.webm");
 
+      const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch(TRANSCRIBE_URL, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: formData,
       });

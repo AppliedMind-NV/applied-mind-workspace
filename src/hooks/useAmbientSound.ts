@@ -57,12 +57,13 @@ async function soundExists(file: string): Promise<boolean> {
 
 /** Trigger generation of a single sound via edge function */
 async function triggerGeneration(soundKey: string): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
   const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-ambient-sounds`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
+      Authorization: `Bearer ${session?.access_token}`,
     },
     body: JSON.stringify({ sound: soundKey }),
   });
