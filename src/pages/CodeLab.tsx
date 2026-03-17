@@ -1,4 +1,5 @@
 import { Play, Terminal, Plus, Save, Trash2, Sparkles, RotateCcw, Loader2, Code2, Layers, BookOpen, Link2, Unlink } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -561,9 +562,19 @@ export default function CodeLab() {
           {/* Output console */}
           <div className="h-36 border-t flex flex-col shrink-0">
             <div className="flex items-center justify-between px-3 py-1 border-b bg-muted/20 shrink-0">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Terminal size={11} className="text-muted-foreground" />
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Output</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-medium cursor-default">
+                      <Sparkles size={9} /> AI-Powered
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px] text-xs">
+                    Code is executed by an AI model that simulates the runtime environment. Results may differ slightly from a local interpreter.
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <button onClick={clearOutput} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
                 Clear
