@@ -202,7 +202,21 @@ export default function CodeLab() {
       const result = await resp.json();
 
       if (!resp.ok) {
-        setOutput(`▸ Error: ${result.error || "Execution failed"}`);
+        if (resp.status === 502) {
+          setOutput(
+            "▸ Code execution service is temporarily unavailable.\n\n" +
+            "The external sandbox provider we use is currently unreachable.\n" +
+            "This is a known issue — we're working on switching to a new provider.\n\n" +
+            "In the meantime, you can still write and save your code.\n" +
+            "Try running it in a local editor or an online sandbox like replit.com."
+          );
+        } else if (resp.status === 429) {
+          setOutput("▸ Rate limit reached. Please wait a moment before running again.");
+        } else if (resp.status === 408) {
+          setOutput("▸ Code execution timed out (10s limit). Try simplifying your code.");
+        } else {
+          setOutput(`▸ Error: ${result.error || "Execution failed"}`);
+        }
         setRunning(false);
         return;
       }
