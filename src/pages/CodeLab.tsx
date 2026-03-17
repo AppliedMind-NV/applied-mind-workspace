@@ -1,4 +1,5 @@
 import { Play, Terminal, Plus, Save, Trash2, Sparkles, RotateCcw, Loader2, Code2, Layers, BookOpen, Link2, Unlink } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
