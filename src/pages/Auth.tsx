@@ -92,6 +92,16 @@ export default function Auth() {
     setOtp("");
   };
 
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    resetState();
+    const { error } = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    if (error) setError(error.message);
+    setGoogleLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
