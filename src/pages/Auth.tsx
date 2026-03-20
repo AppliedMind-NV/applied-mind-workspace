@@ -102,15 +102,6 @@ export default function Auth() {
     setGoogleLoading(false);
   };
 
-  const handleAppleSignIn = async () => {
-    setAppleLoading(true);
-    resetState();
-    const { error } = await lovable.auth.signInWithOAuth("apple", {
-      redirect_uri: window.location.origin,
-    });
-    if (error) setError(error.message);
-    setAppleLoading(false);
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
