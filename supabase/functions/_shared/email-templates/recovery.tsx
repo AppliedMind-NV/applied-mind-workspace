@@ -24,12 +24,12 @@ export const RecoveryEmail = ({
 }: RecoveryEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Reset your AppliedMind password</Preview>
+    <Preview>Reset your password for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
         <Heading style={h1}>Reset your password</Heading>
         <Text style={text}>
-          We received a request to reset your AppliedMind password. Click
+          We received a request to reset your password for {siteName}. Click
           the button below to choose a new password.
         </Text>
         <Button style={button} href={confirmationUrl}>
@@ -47,17 +47,17 @@ export const RecoveryEmail = ({
 export default RecoveryEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: 'Inter, Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const container = { padding: '32px 28px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
-  color: '#0a0a0a',
+  color: 'hsl(240, 10%, 3.9%)',
   margin: '0 0 20px',
 }
 const text = {
   fontSize: '14px',
-  color: '#8a8a8a',
-  lineHeight: '1.5',
+  color: 'hsl(240, 3.8%, 46.1%)',
+  lineHeight: '1.6',
   margin: '0 0 25px',
 }
 const button = {
@@ -68,4 +68,4 @@ const button = {
   padding: '12px 20px',
   textDecoration: 'none',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: 'hsl(240, 3.8%, 46.1%)', margin: '30px 0 0' }

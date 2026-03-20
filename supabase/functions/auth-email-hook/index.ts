@@ -36,8 +36,8 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "ai-learn-flow-64"
-const SENDER_DOMAIN = "notify.appliedmindnotes.com"
+const SITE_NAME = "AppliedMind"
+const SENDER_DOMAIN = "support.appliedmindnotes.com"
 const ROOT_DOMAIN = "appliedmindnotes.com"
 const FROM_DOMAIN = "appliedmindnotes.com" // Domain shown in From address (may be root or sender subdomain)
 
