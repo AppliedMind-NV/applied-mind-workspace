@@ -70,7 +70,7 @@ const NON_STREAMING_ACTIONS = new Set(["flashcards", "practice_json", "generate_
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
