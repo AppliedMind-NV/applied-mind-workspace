@@ -48,6 +48,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Dashboard />} />
@@ -59,7 +60,7 @@ const App = () => (
               <Route path="/study" element={<Study />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<CatchAllRedirect />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
