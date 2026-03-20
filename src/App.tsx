@@ -21,6 +21,24 @@ import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
+/**
+ * Catches unknown routes: if user has a session, send to dashboard;
+ * otherwise show 404. Prevents OAuth callback URLs from showing 404.
+ */
+function CatchAllRedirect() {
+  const { session, loading } = useAuth();
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="relative h-10 w-10">
+        <div className="absolute inset-0 rounded-full border-2 border-muted" />
+        <div className="absolute inset-0 rounded-full border-2 border-t-primary animate-spin" />
+      </div>
+    </div>
+  );
+  if (session) return <Navigate to="/" replace />;
+  return <NotFound />;
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading, onboardingCompleted, completeOnboarding } = useAuth();
   if (loading) return (
