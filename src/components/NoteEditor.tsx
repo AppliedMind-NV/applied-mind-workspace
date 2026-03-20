@@ -75,19 +75,22 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
   if (!editor) return null;
 
   const ToolbarButton = ({
-    onClick,
+    onAction,
     active,
     children,
     title,
   }: {
-    onClick: () => void;
+    onAction: () => void;
     active?: boolean;
     children: React.ReactNode;
     title: string;
   }) => (
     <button
       type="button"
-      onClick={onClick}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onAction();
+      }}
       title={title}
       className={`p-1.5 rounded-md transition-colors ${
         active
