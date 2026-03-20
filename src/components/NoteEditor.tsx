@@ -75,19 +75,22 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
   if (!editor) return null;
 
   const ToolbarButton = ({
-    onClick,
+    onAction,
     active,
     children,
     title,
   }: {
-    onClick: () => void;
+    onAction: () => void;
     active?: boolean;
     children: React.ReactNode;
     title: string;
   }) => (
     <button
       type="button"
-      onClick={onClick}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onAction();
+      }}
       title={title}
       className={`p-1.5 rounded-md transition-colors ${
         active
@@ -104,14 +107,14 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
       {/* Toolbar */}
       <div className="flex items-center gap-0.5 flex-wrap border-b pb-2 mb-3">
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBold().run()}
+          onAction={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive("bold")}
           title="Bold"
         >
           <Bold size={14} />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleItalic().run()}
+          onAction={() => editor.chain().focus().toggleItalic().run()}
           active={editor.isActive("italic")}
           title="Italic"
         >
@@ -121,21 +124,21 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
         <div className="w-px h-4 bg-border mx-1" />
 
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          onAction={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           active={editor.isActive("heading", { level: 1 })}
           title="Heading 1"
         >
           <Heading1 size={14} />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onAction={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           active={editor.isActive("heading", { level: 2 })}
           title="Heading 2"
         >
           <Heading2 size={14} />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          onAction={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
           active={editor.isActive("heading", { level: 3 })}
           title="Heading 3"
         >
@@ -145,14 +148,14 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
         <div className="w-px h-4 bg-border mx-1" />
 
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          onAction={() => editor.chain().focus().toggleBulletList().run()}
           active={editor.isActive("bulletList")}
           title="Bullet List"
         >
           <List size={14} />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          onAction={() => editor.chain().focus().toggleOrderedList().run()}
           active={editor.isActive("orderedList")}
           title="Ordered List"
         >
@@ -162,21 +165,21 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
         <div className="w-px h-4 bg-border mx-1" />
 
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          onAction={() => editor.chain().focus().toggleCodeBlock().run()}
           active={editor.isActive("codeBlock")}
           title="Code Block"
         >
           <Code size={14} />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          onAction={() => editor.chain().focus().toggleBlockquote().run()}
           active={editor.isActive("blockquote")}
           title="Blockquote"
         >
           <Quote size={14} />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          onAction={() => editor.chain().focus().setHorizontalRule().run()}
           title="Divider"
         >
           <Minus size={14} />
@@ -185,13 +188,13 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
         <div className="w-px h-4 bg-border mx-1" />
 
         <ToolbarButton
-          onClick={() => editor.chain().focus().undo().run()}
+          onAction={() => editor.chain().focus().undo().run()}
           title="Undo"
         >
           <Undo size={14} />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().redo().run()}
+          onAction={() => editor.chain().focus().redo().run()}
           title="Redo"
         >
           <Redo size={14} />
