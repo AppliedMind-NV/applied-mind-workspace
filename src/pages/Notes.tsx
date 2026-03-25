@@ -76,7 +76,7 @@ export default function Notes() {
   const [editorContent, setEditorContent] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saveTimeout, setSaveTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
