@@ -76,7 +76,7 @@ export default function Notes() {
   const [editorContent, setEditorContent] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saveTimeout, setSaveTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
@@ -180,8 +180,8 @@ export default function Notes() {
 
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
-    if (saveTimeout) clearTimeout(saveTimeout);
-      const timeout = setTimeout(async () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(async () => {
         const { error } = await supabase
           .from("notes")
           .update({ title: newTitle || "Untitled", content: newContent })
@@ -199,9 +199,8 @@ export default function Notes() {
           )
         );
       }, 800);
-      setSaveTimeout(timeout);
     },
-    [saveTimeout]
+    []
   );
 
   const handleTitleChange = (val: string) => {
@@ -758,6 +757,7 @@ export default function Notes() {
             )}
             <div className="flex-1 min-h-0">
               <NoteEditor
+                key={selectedNote}
                 content={editorContent}
                 onUpdate={handleEditorUpdate}
                 onSelectionChange={setSelectedText}
