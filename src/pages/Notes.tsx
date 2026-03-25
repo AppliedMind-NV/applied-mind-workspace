@@ -115,6 +115,8 @@ export default function Notes() {
           setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
         }
         if (notesRes.data) {
+          console.log("[Notes] fetched notes count:", notesRes.data.length);
+          console.log("[Notes] first note content sample:", JSON.stringify(notesRes.data[0]?.content)?.slice(0, 300));
           setNotes(notesRes.data as Note[]);
           if (!selectedNote && notesRes.data.length > 0) {
             const first = notesRes.data[0] as Note;
@@ -166,9 +168,12 @@ export default function Notes() {
   };
 
   const selectNote = async (note: Note) => {
+    console.log("[Notes] selectNote called:", note.id);
+    console.log("[Notes] raw note.content from state:", JSON.stringify(note.content)?.slice(0, 300));
     setSelectedNote(note.id);
     setTitle(note.title);
     const migrated = migrateContent(note.content);
+    console.log("[Notes] migrated content:", JSON.stringify(migrated)?.slice(0, 300));
     setEditorContent(migrated);
     setActiveNote(note.title, extractText(migrated));
     // Fetch linked code projects
