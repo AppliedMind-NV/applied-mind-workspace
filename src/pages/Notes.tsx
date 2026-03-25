@@ -77,6 +77,7 @@ export default function Notes() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
@@ -181,6 +182,7 @@ export default function Notes() {
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      setSaveStatus("saving");
       saveTimeoutRef.current = setTimeout(async () => {
         const { error } = await supabase
           .from("notes")
@@ -188,6 +190,7 @@ export default function Notes() {
           .eq("id", noteId);
         if (error) {
           console.error("Autosave failed:", error);
+          setSaveStatus("idle");
           toast({ title: "Autosave failed", description: error.message, variant: "destructive" });
           return;
         }
@@ -198,6 +201,8 @@ export default function Notes() {
               : n
           )
         );
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 2000);
       }, 800);
     },
     []
@@ -731,13 +736,22 @@ export default function Notes() {
       <div className="flex-1 flex flex-col min-w-0">
         {selectedNote ? (
           <div className="flex-1 flex flex-col p-8 max-w-3xl overflow-hidden">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              className="w-full text-2xl font-semibold bg-transparent outline-none mb-4 placeholder:text-muted-foreground shrink-0"
-              placeholder="Untitled"
-            />
+            <div className="flex items-center gap-3 mb-4 shrink-0">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                className="flex-1 text-2xl font-semibold bg-transparent outline-none placeholder:text-muted-foreground"
+                placeholder="Untitled"
+              />
+              {saveStatus !== "idle" && (
+                <span className={`text-xs whitespace-nowrap transition-opacity duration-300 ${
+                  saveStatus === "saving" ? "text-muted-foreground animate-pulse" : "text-green-500"
+                }`}>
+                  {saveStatus === "saving" ? "Saving…" : "✓ Saved"}
+                </span>
+              )}
+            </div>
             {/* Linked code projects */}
             {linkedProjects.length > 0 && (
               <div className="flex items-center gap-2 mb-3 flex-wrap">
