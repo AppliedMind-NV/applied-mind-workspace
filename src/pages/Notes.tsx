@@ -180,8 +180,8 @@ export default function Notes() {
 
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
-    if (saveTimeout) clearTimeout(saveTimeout);
-      const timeout = setTimeout(async () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(async () => {
         const { error } = await supabase
           .from("notes")
           .update({ title: newTitle || "Untitled", content: newContent })
@@ -199,9 +199,8 @@ export default function Notes() {
           )
         );
       }, 800);
-      setSaveTimeout(timeout);
     },
-    [saveTimeout]
+    []
   );
 
   const handleTitleChange = (val: string) => {
