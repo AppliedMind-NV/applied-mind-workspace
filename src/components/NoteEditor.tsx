@@ -28,6 +28,7 @@ interface NoteEditorProps {
 }
 
 export default function NoteEditor({ content, onUpdate, onSelectionChange }: NoteEditorProps) {
+  console.log("[NoteEditor] mount/render with content:", JSON.stringify(content)?.slice(0, 300));
   const isExternalUpdate = useRef(false);
 
   const editor = useEditor({
