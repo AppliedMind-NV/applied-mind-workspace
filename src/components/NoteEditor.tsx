@@ -79,14 +79,16 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
 
   // When note changes externally (selecting a different note), update editor content
   useEffect(() => {
-    if (editor && content !== undefined) {
-      const currentJSON = JSON.stringify(editor.getJSON());
-      const newJSON = JSON.stringify(content);
-      if (currentJSON !== newJSON) {
-        isExternalUpdate.current = true;
-        editor.commands.setContent(content || { type: "doc", content: [] });
-        isExternalUpdate.current = false;
-      }
+    if (!editor || editor.isDestroyed) return;
+    const safeContent = content || { type: "doc", content: [] };
+    const currentJSON = JSON.stringify(editor.getJSON());
+    const newJSON = JSON.stringify(safeContent);
+    console.log("[NoteEditor] useEffect content sync - match:", currentJSON === newJSON, "content:", newJSON?.slice(0, 200));
+    if (currentJSON !== newJSON) {
+      console.log("[NoteEditor] useEffect: applying setContent");
+      isExternalUpdate.current = true;
+      editor.commands.setContent(safeContent);
+      isExternalUpdate.current = false;
     }
   }, [content, editor]);
 
