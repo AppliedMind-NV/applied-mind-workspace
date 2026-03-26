@@ -31,6 +31,9 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
   console.log("[NoteEditor] mount/render with content:", JSON.stringify(content)?.slice(0, 300));
   const isExternalUpdate = useRef(false);
 
+  const contentRef = useRef(content);
+  contentRef.current = content;
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -41,7 +44,21 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
         placeholder: "Start typing your notes… Use the toolbar for formatting.",
       }),
     ],
-    content,
+    content: content || { type: "doc", content: [] },
+    onCreate: ({ editor }) => {
+      // Safety net: force-set content after editor is fully initialized
+      const currentContent = contentRef.current;
+      if (currentContent && currentContent.type === "doc") {
+        const editorJSON = JSON.stringify(editor.getJSON());
+        const expectedJSON = JSON.stringify(currentContent);
+        if (editorJSON !== expectedJSON) {
+          console.log("[NoteEditor] onCreate: content mismatch, forcing setContent");
+          isExternalUpdate.current = true;
+          editor.commands.setContent(currentContent);
+          isExternalUpdate.current = false;
+        }
+      }
+    },
     onUpdate: ({ editor }) => {
       if (!isExternalUpdate.current) {
         onUpdate(editor.getJSON());
