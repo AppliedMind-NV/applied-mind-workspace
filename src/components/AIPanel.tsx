@@ -4,6 +4,7 @@ import { useNoteContext } from "@/contexts/NoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { getSessionToken } from "@/lib/auth-helpers";
 import ReactMarkdown from "react-markdown";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -33,11 +34,12 @@ async function streamChat({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
+  const token = await getSessionToken();
   const resp = await fetch(NOTE_AI_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ messages, action, noteContent, noteTitle, selectedText }),
   });
@@ -99,11 +101,12 @@ async function fetchNonStreaming({
   noteTitle: string;
   selectedText?: string;
 }) {
+  const token = await getSessionToken();
   const resp = await fetch(NOTE_AI_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ messages, action, noteContent, noteTitle, selectedText }),
   });

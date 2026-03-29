@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNoteContext } from "@/contexts/NoteContext";
 import { toast } from "@/hooks/use-toast";
+import { getSessionToken } from "@/lib/auth-helpers";
 
 interface PracticeQuestion {
   id: string;
@@ -57,11 +58,12 @@ export default function Practice() {
     setGenerating(true);
 
     try {
+      const practiceToken = await getSessionToken();
       const resp = await fetch(NOTE_AI_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${practiceToken}`,
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: "Generate practice questions from this note" }],

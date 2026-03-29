@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { getSessionToken } from "@/lib/auth-helpers";
 import Editor from "@monaco-editor/react";
 import CodeAIPanel, { CodeAIPanelRef } from "@/components/codelab/CodeAIPanel";
 import PracticeBuilds from "@/components/codelab/PracticeBuilds";
@@ -270,11 +271,12 @@ export default function CodeLab() {
   const generateFlashcardsFromCode = async () => {
     if (!code.trim() || !user) return;
     try {
+      const flashToken = await getSessionToken();
       const resp = await fetch(NOTE_AI_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${flashToken}`,
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: "Generate flashcards from this code" }],
@@ -299,11 +301,12 @@ export default function CodeLab() {
   const generatePracticeFromCode = async () => {
     if (!code.trim() || !user) return;
     try {
+      const practiceToken = await getSessionToken();
       const resp = await fetch(NOTE_AI_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${practiceToken}`,
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: "Generate practice questions from this code" }],

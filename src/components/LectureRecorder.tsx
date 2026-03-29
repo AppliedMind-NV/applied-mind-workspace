@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getSessionToken } from "@/lib/auth-helpers";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
@@ -176,11 +177,12 @@ export function LectureRecorder({ open, onOpenChange, folderId, onNoteCreated }:
       setProgress(40);
       setState("generating");
 
+      const aiToken = await getSessionToken();
       const aiResp = await fetch(NOTE_AI_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${aiToken}`,
         },
         body: JSON.stringify({
           messages: [
