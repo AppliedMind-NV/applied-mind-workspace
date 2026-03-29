@@ -119,7 +119,6 @@ export default function Notes() {
         if (notesRes.data) {
           setNotes(notesRes.data as Note[]);
           if (!selectedNote && notesRes.data.length > 0) {
-          if (!selectedNote && notesRes.data.length > 0) {
             const first = notesRes.data[0] as Note;
             selectNote(first);
           }
