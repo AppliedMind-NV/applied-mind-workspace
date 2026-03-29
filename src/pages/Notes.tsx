@@ -776,7 +776,6 @@ export default function Notes() {
             )}
             <div className="flex-1 min-h-0">
               <NoteEditor
-                key={selectedNote}
                 content={editorContent}
                 onUpdate={handleEditorUpdate}
                 onSelectionChange={setSelectedText}
