@@ -117,9 +117,8 @@ export default function Notes() {
           setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
         }
         if (notesRes.data) {
-          console.log("[Notes] fetched notes count:", notesRes.data.length);
-          console.log("[Notes] first note content sample:", JSON.stringify(notesRes.data[0]?.content)?.slice(0, 300));
           setNotes(notesRes.data as Note[]);
+          if (!selectedNote && notesRes.data.length > 0) {
           if (!selectedNote && notesRes.data.length > 0) {
             const first = notesRes.data[0] as Note;
             selectNote(first);
@@ -178,12 +177,9 @@ export default function Notes() {
 
   const selectNote = async (note: Note) => {
     await flushPendingSave("switch-note");
-    console.log("[Notes] selectNote called:", note.id);
-    console.log("[Notes] selected note content from DB:", JSON.stringify(note.content)?.slice(0, 300));
     setSelectedNote(note.id);
     setTitle(note.title);
     const migrated = migrateContent(note.content);
-    console.log("[Notes] migrated content:", JSON.stringify(migrated)?.slice(0, 300));
     setEditorContent(migrated);
     setActiveNote(note.title, extractText(migrated));
     // Fetch linked code projects
@@ -195,17 +191,7 @@ export default function Notes() {
   };
 
   const persistNote = useCallback(async (noteId: string, newTitle: string, newContent: any, source: string) => {
-    const payload = {
-      title: newTitle || "Untitled",
-      content: newContent,
-    };
-
-    console.log("[Notes] save payload sent to Supabase:", {
-      source,
-      noteId,
-      title: payload.title,
-      content: JSON.stringify(payload.content)?.slice(0, 300),
-    });
+    const payload = { title: newTitle || "Untitled", content: newContent };
 
     const { data, error } = await supabase
       .from("notes")
@@ -213,13 +199,6 @@ export default function Notes() {
       .eq("id", noteId)
       .select("id, title, content, updated_at, folder_id")
       .single();
-
-    console.log("[Notes] save response from Supabase:", {
-      source,
-      noteId,
-      error,
-      data,
-    });
 
     if (error) {
       console.error("Autosave failed:", error);
