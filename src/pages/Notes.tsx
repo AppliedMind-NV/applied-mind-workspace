@@ -252,61 +252,57 @@ export default function Notes() {
 
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
-      pendingSaveRef.current = {
-        noteId,
-        title: newTitle,
-        content: newContent,
-      };
-
+      pendingSaveRef.current = { noteId, title: newTitle, content: newContent };
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setSaveStatus("saving");
-
       saveTimeoutRef.current = setTimeout(async () => {
         saveTimeoutRef.current = null;
-        const pendingSave = pendingSaveRef.current;
-        if (!pendingSave) return;
-
+        const pending = pendingSaveRef.current;
+        if (!pending) return;
         pendingSaveRef.current = null;
-        await persistNote(pendingSave.noteId, pendingSave.title, pendingSave.content, "debounced-save");
-      }, 800);
+        await persistNote(pending.noteId, pending.title, pending.content, "debounced-save");
+      }, 1200);
     },
     [persistNote]
   );
 
-  useEffect(() => {
-    if (!selectedNote) return;
-
-    console.log("[Notes] parent editorContent state before rendering NoteEditor:", {
-      selectedNote,
-      content: JSON.stringify(editorContent)?.slice(0, 300),
-    });
-  }, [selectedNote, editorContent]);
-
+  // Flush on unmount (route change)
   useEffect(() => {
     return () => {
       void flushPendingSave("notes-unmount");
     };
   }, [flushPendingSave]);
 
+  // Flush on tab close / refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const pending = pendingSaveRef.current;
+      if (!pending) return;
+      // Use sendBeacon for reliable save on tab close
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?id=eq.${pending.noteId}`;
+      const body = JSON.stringify({ title: pending.title, content: pending.content });
+      navigator.sendBeacon(
+        url,
+        new Blob([body], { type: "application/json" })
+      );
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
   const handleTitleChange = (val: string) => {
     setTitle(val);
     if (selectedNote) {
       setActiveNote(val, extractText(editorContent));
-      // Direct save - no debounce
-      setSaveStatus("saving");
-      persistNote(selectedNote, val, editorContent, "direct-title-update");
+      autoSave(selectedNote, val, editorContent);
     }
   };
 
   const handleEditorUpdate = (json: any) => {
-    console.log("[Notes] handleEditorUpdate called, selectedNote:", selectedNote);
-    console.log("[Notes] content from NoteEditor:", JSON.stringify(json)?.slice(0, 300));
     setEditorContent(json);
     if (selectedNote) {
       setActiveNote(title, extractText(json));
-      // Direct save - no debounce
-      setSaveStatus("saving");
-      persistNote(selectedNote, title, json, "direct-editor-update");
+      autoSave(selectedNote, title, json);
     }
   };
 
