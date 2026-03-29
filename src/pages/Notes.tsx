@@ -143,11 +143,18 @@ export default function Notes() {
     }
   }, [editingFolderId]);
 
-  // Migrate old { body: string } format to TipTap JSON
-  const migrateContent = (content: any): any => {
-    if (!content) return { type: "doc", content: [] };
-    // Already TipTap JSON
-    if (content.type === "doc") return content;
+  // Safely normalize content for the editor
+  const migrateContent = (raw: any): any => {
+    if (!raw) return { type: "doc", content: [] };
+    // Handle stringified JSON from DB
+    let content = raw;
+    if (typeof content === "string") {
+      try { content = JSON.parse(content); } catch { return { type: "doc", content: [] }; }
+    }
+    // Already valid TipTap JSON
+    if (content && content.type === "doc" && Array.isArray(content.content)) {
+      return content;
+    }
     // Old format: { body: "text" }
     if (typeof content.body === "string" && content.body) {
       return {
