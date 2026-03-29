@@ -283,16 +283,22 @@ export default function Notes() {
   const handleTitleChange = (val: string) => {
     setTitle(val);
     if (selectedNote) {
-      autoSave(selectedNote, val, editorContent);
       setActiveNote(val, extractText(editorContent));
+      // Direct save - no debounce
+      setSaveStatus("saving");
+      persistNote(selectedNote, val, editorContent, "direct-title-update");
     }
   };
 
   const handleEditorUpdate = (json: any) => {
+    console.log("[Notes] handleEditorUpdate called, selectedNote:", selectedNote);
+    console.log("[Notes] content from NoteEditor:", JSON.stringify(json)?.slice(0, 300));
     setEditorContent(json);
     if (selectedNote) {
-      autoSave(selectedNote, title, json);
       setActiveNote(title, extractText(json));
+      // Direct save - no debounce
+      setSaveStatus("saving");
+      persistNote(selectedNote, title, json, "direct-editor-update");
     }
   };
 
