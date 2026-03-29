@@ -77,6 +77,7 @@ export default function Notes() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ noteId: string; title: string; content: any } | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
@@ -168,8 +169,9 @@ export default function Notes() {
   };
 
   const selectNote = async (note: Note) => {
+    await flushPendingSave("switch-note");
     console.log("[Notes] selectNote called:", note.id);
-    console.log("[Notes] raw note.content from state:", JSON.stringify(note.content)?.slice(0, 300));
+    console.log("[Notes] selected note content from DB:", JSON.stringify(note.content)?.slice(0, 300));
     setSelectedNote(note.id);
     setTitle(note.title);
     const migrated = migrateContent(note.content);
@@ -184,34 +186,99 @@ export default function Notes() {
     setLinkedProjects(data || []);
   };
 
+  const persistNote = useCallback(async (noteId: string, newTitle: string, newContent: any, source: string) => {
+    const payload = {
+      title: newTitle || "Untitled",
+      content: newContent,
+    };
+
+    console.log("[Notes] save payload sent to Supabase:", {
+      source,
+      noteId,
+      title: payload.title,
+      content: JSON.stringify(payload.content)?.slice(0, 300),
+    });
+
+    const { data, error } = await supabase
+      .from("notes")
+      .update(payload)
+      .eq("id", noteId)
+      .select("id, title, content, updated_at, folder_id")
+      .single();
+
+    console.log("[Notes] save response from Supabase:", {
+      source,
+      noteId,
+      error,
+      data,
+    });
+
+    if (error) {
+      console.error("Autosave failed:", error);
+      setSaveStatus("idle");
+      toast({ title: "Autosave failed", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    if (data) {
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? (data as Note) : n)));
+    }
+
+    setSaveStatus("saved");
+    setTimeout(() => setSaveStatus("idle"), 2000);
+  }, []);
+
+  const flushPendingSave = useCallback(async (source: string) => {
+    const pendingSave = pendingSaveRef.current;
+    if (!pendingSave) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    pendingSaveRef.current = null;
+    setSaveStatus("saving");
+    await persistNote(pendingSave.noteId, pendingSave.title, pendingSave.content, source);
+  }, [persistNote]);
+
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
+      pendingSaveRef.current = {
+        noteId,
+        title: newTitle,
+        content: newContent,
+      };
+
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setSaveStatus("saving");
+
       saveTimeoutRef.current = setTimeout(async () => {
-        const { error } = await supabase
-          .from("notes")
-          .update({ title: newTitle || "Untitled", content: newContent })
-          .eq("id", noteId);
-        if (error) {
-          console.error("Autosave failed:", error);
-          setSaveStatus("idle");
-          toast({ title: "Autosave failed", description: error.message, variant: "destructive" });
-          return;
-        }
-        setNotes((prev) =>
-          prev.map((n) =>
-            n.id === noteId
-              ? { ...n, title: newTitle || "Untitled", content: newContent, updated_at: new Date().toISOString() }
-              : n
-          )
-        );
-        setSaveStatus("saved");
-        setTimeout(() => setSaveStatus("idle"), 2000);
+        saveTimeoutRef.current = null;
+        const pendingSave = pendingSaveRef.current;
+        if (!pendingSave) return;
+
+        pendingSaveRef.current = null;
+        await persistNote(pendingSave.noteId, pendingSave.title, pendingSave.content, "debounced-save");
       }, 800);
     },
-    []
+    [persistNote]
   );
+
+  useEffect(() => {
+    if (!selectedNote) return;
+
+    console.log("[Notes] parent editorContent state before rendering NoteEditor:", {
+      selectedNote,
+      content: JSON.stringify(editorContent)?.slice(0, 300),
+    });
+  }, [selectedNote, editorContent]);
+
+  useEffect(() => {
+    return () => {
+      void flushPendingSave("notes-unmount");
+    };
+  }, [flushPendingSave]);
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
