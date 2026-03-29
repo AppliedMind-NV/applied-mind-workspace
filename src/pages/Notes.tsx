@@ -117,8 +117,6 @@ export default function Notes() {
           setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
         }
         if (notesRes.data) {
-          console.log("[Notes] fetched notes count:", notesRes.data.length);
-          console.log("[Notes] first note content sample:", JSON.stringify(notesRes.data[0]?.content)?.slice(0, 300));
           setNotes(notesRes.data as Note[]);
           if (!selectedNote && notesRes.data.length > 0) {
             const first = notesRes.data[0] as Note;
@@ -178,12 +176,9 @@ export default function Notes() {
 
   const selectNote = async (note: Note) => {
     await flushPendingSave("switch-note");
-    console.log("[Notes] selectNote called:", note.id);
-    console.log("[Notes] selected note content from DB:", JSON.stringify(note.content)?.slice(0, 300));
     setSelectedNote(note.id);
     setTitle(note.title);
     const migrated = migrateContent(note.content);
-    console.log("[Notes] migrated content:", JSON.stringify(migrated)?.slice(0, 300));
     setEditorContent(migrated);
     setActiveNote(note.title, extractText(migrated));
     // Fetch linked code projects
@@ -195,17 +190,7 @@ export default function Notes() {
   };
 
   const persistNote = useCallback(async (noteId: string, newTitle: string, newContent: any, source: string) => {
-    const payload = {
-      title: newTitle || "Untitled",
-      content: newContent,
-    };
-
-    console.log("[Notes] save payload sent to Supabase:", {
-      source,
-      noteId,
-      title: payload.title,
-      content: JSON.stringify(payload.content)?.slice(0, 300),
-    });
+    const payload = { title: newTitle || "Untitled", content: newContent };
 
     const { data, error } = await supabase
       .from("notes")
@@ -213,13 +198,6 @@ export default function Notes() {
       .eq("id", noteId)
       .select("id, title, content, updated_at, folder_id")
       .single();
-
-    console.log("[Notes] save response from Supabase:", {
-      source,
-      noteId,
-      error,
-      data,
-    });
 
     if (error) {
       console.error("Autosave failed:", error);
@@ -252,61 +230,57 @@ export default function Notes() {
 
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
-      pendingSaveRef.current = {
-        noteId,
-        title: newTitle,
-        content: newContent,
-      };
-
+      pendingSaveRef.current = { noteId, title: newTitle, content: newContent };
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setSaveStatus("saving");
-
       saveTimeoutRef.current = setTimeout(async () => {
         saveTimeoutRef.current = null;
-        const pendingSave = pendingSaveRef.current;
-        if (!pendingSave) return;
-
+        const pending = pendingSaveRef.current;
+        if (!pending) return;
         pendingSaveRef.current = null;
-        await persistNote(pendingSave.noteId, pendingSave.title, pendingSave.content, "debounced-save");
-      }, 800);
+        await persistNote(pending.noteId, pending.title, pending.content, "debounced-save");
+      }, 1200);
     },
     [persistNote]
   );
 
-  useEffect(() => {
-    if (!selectedNote) return;
-
-    console.log("[Notes] parent editorContent state before rendering NoteEditor:", {
-      selectedNote,
-      content: JSON.stringify(editorContent)?.slice(0, 300),
-    });
-  }, [selectedNote, editorContent]);
-
+  // Flush on unmount (route change)
   useEffect(() => {
     return () => {
       void flushPendingSave("notes-unmount");
     };
   }, [flushPendingSave]);
 
+  // Flush on tab close / refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const pending = pendingSaveRef.current;
+      if (!pending) return;
+      // Use sendBeacon for reliable save on tab close
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?id=eq.${pending.noteId}`;
+      const body = JSON.stringify({ title: pending.title, content: pending.content });
+      navigator.sendBeacon(
+        url,
+        new Blob([body], { type: "application/json" })
+      );
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
   const handleTitleChange = (val: string) => {
     setTitle(val);
     if (selectedNote) {
       setActiveNote(val, extractText(editorContent));
-      // Direct save - no debounce
-      setSaveStatus("saving");
-      persistNote(selectedNote, val, editorContent, "direct-title-update");
+      autoSave(selectedNote, val, editorContent);
     }
   };
 
   const handleEditorUpdate = (json: any) => {
-    console.log("[Notes] handleEditorUpdate called, selectedNote:", selectedNote);
-    console.log("[Notes] content from NoteEditor:", JSON.stringify(json)?.slice(0, 300));
     setEditorContent(json);
     if (selectedNote) {
       setActiveNote(title, extractText(json));
-      // Direct save - no debounce
-      setSaveStatus("saving");
-      persistNote(selectedNote, title, json, "direct-editor-update");
+      autoSave(selectedNote, title, json);
     }
   };
 
