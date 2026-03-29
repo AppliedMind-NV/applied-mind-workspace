@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getSessionToken } from "@/lib/auth-helpers";
 
 const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
 const TRANSCRIBE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`;
@@ -214,11 +215,12 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
 
       updateFile(idx, { status: "generating", progress: 50 });
 
+      const uploadToken = await getSessionToken();
       const resp = await fetch(NOTE_AI_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${uploadToken}`,
         },
         body: JSON.stringify({
           messages: [{ role: "user", content: `Transform this lecture content into structured study notes:\n\n${rawText.slice(0, 60000)}` }],

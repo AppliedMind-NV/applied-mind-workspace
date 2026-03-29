@@ -96,6 +96,12 @@ serve(async (req) => {
       });
     }
     const userId = userData.user.id;
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized: no user ID" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { messages, action, noteContent, noteTitle, selectedText } = await req.json();
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");

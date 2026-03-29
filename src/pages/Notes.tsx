@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNoteContext } from "@/contexts/NoteContext";
 import { toast } from "@/hooks/use-toast";
+import { getSessionToken } from "@/lib/auth-helpers";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -485,11 +486,12 @@ export default function Notes() {
         const text = extractText(migrated);
         if (text.trim().length < 20) continue;
 
+        const noteToken = await getSessionToken();
         const resp = await fetch(NOTE_AI_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${noteToken}`,
           },
           body: JSON.stringify({
             messages: [{ role: "user", content: "Generate flashcards from this note" }],

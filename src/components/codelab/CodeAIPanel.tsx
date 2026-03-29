@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
+import { getSessionToken } from "@/lib/auth-helpers";
 
 interface AIMessage {
   role: "user" | "assistant";
@@ -65,11 +66,12 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
+        const token = await getSessionToken();
         const resp = await fetch(NOTE_AI_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             messages: [{ role: "user", content: userContent || code }],
