@@ -124,9 +124,9 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
   if (!editor) return null;
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-background">
+    <div className="border rounded-lg overflow-hidden bg-background h-full flex flex-col">
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b bg-muted/30">
+      <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b bg-muted/30 shrink-0">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive("bold")}
