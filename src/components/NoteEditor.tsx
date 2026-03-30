@@ -215,7 +215,9 @@ export default function NoteEditor({ content, onUpdate, onSelectionChange }: Not
       </div>
 
       {/* Editor */}
-      <EditorContent editor={editor} />
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }
