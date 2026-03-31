@@ -124,8 +124,11 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
 
         if (!text) setMessages((prev) => [...prev, { role: "assistant", content: "No response received." }]);
       } catch (err: any) {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${err.message}` }]);
-        toast({ title: "AI error", description: err.message, variant: "destructive" });
+        const msg = err?.message === "Failed to fetch"
+          ? "Could not connect to AI service. Please check your connection and try again."
+          : (err?.message || "An unexpected error occurred");
+        setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${msg}` }]);
+        toast({ title: "AI error", description: msg, variant: "destructive" });
       } finally {
         setLoading(false);
       }
