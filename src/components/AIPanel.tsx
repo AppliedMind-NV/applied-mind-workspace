@@ -179,19 +179,26 @@ export function AIPanel({ onClose }: AIPanelProps) {
         });
       };
 
-      await streamChat({
-        messages: [userMsg],
-        action,
-        noteContent: activeNoteText,
-        noteTitle: activeNoteTitle,
-        selectedText: extraSelectedText,
-        onDelta: upsertAssistant,
-        onDone: () => setIsLoading(false),
-        onError: (msg) => {
-          toast({ title: "AI Error", description: msg, variant: "destructive" });
-          setIsLoading(false);
-        },
-      });
+      try {
+        await streamChat({
+          messages: [userMsg],
+          action,
+          noteContent: activeNoteText,
+          noteTitle: activeNoteTitle,
+          selectedText: extraSelectedText,
+          onDelta: upsertAssistant,
+          onDone: () => setIsLoading(false),
+          onError: (msg) => {
+            toast({ title: "AI Error", description: msg, variant: "destructive" });
+            setIsLoading(false);
+          },
+        });
+      } catch (err: any) {
+        const msg = err?.message || "Failed to connect to AI service";
+        setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${msg}` }]);
+        toast({ title: "AI Error", description: msg, variant: "destructive" });
+        setIsLoading(false);
+      }
     },
     [isLoading, activeNoteText, activeNoteTitle]
   );
