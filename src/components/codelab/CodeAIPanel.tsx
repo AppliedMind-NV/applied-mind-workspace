@@ -66,28 +66,13 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        console.log("[CodeAIPanel] code-lab-ai session", {
-          hasSession: Boolean(session),
-          hasAccessToken: Boolean(session?.access_token),
-          userId: session?.user?.id ?? null,
-        });
-
-        if (!session) throw new Error("No session available");
-        if (!session.access_token) throw new Error("No session access token available");
+        const token = await getSessionToken();
+        console.log("Code Lab token:", token);
 
         const headers = {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
         };
-
-        console.log("[CodeAIPanel] code-lab-ai request", {
-          url: CODE_AI_URL,
-          headers,
-        });
 
         const resp = await fetch(CODE_AI_URL, {
           method: "POST",
