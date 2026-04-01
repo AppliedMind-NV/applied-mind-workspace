@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { getSessionToken } from "@/lib/auth-helpers";
 
 interface AIMessage {
   role: "user" | "assistant";
