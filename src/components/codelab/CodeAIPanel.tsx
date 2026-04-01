@@ -23,7 +23,7 @@ interface AIMessage {
   content: string;
 }
 
-const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
+const CODE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
 
 const AI_ACTIONS = [
   { key: "code_explain", label: "Explain Code", icon: Lightbulb, description: "What does this code do?" },
