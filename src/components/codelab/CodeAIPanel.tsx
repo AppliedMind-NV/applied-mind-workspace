@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-import { getSessionToken } from "@/lib/auth-helpers";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AIMessage {
   role: "user" | "assistant";
@@ -66,7 +66,12 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
-        const token = await getSessionToken();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          console.error("No session found", sessionError);
+          throw new Error("User not authenticated. Please log in again.");
+        }
+        const token = session.access_token;
         console.log("Code Lab token:", token);
 
         const headers = {
