@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-import { getSessionToken } from "@/lib/auth-helpers";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AIMessage {
   role: "user" | "assistant";
@@ -66,13 +66,32 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
-        const token = await getSessionToken();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        console.log("[CodeAIPanel] code-lab-ai session", {
+          hasSession: Boolean(session),
+          hasAccessToken: Boolean(session?.access_token),
+          userId: session?.user?.id ?? null,
+        });
+
+        if (!session) throw new Error("No session available");
+        if (!session.access_token) throw new Error("No session access token available");
+
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        };
+
+        console.log("[CodeAIPanel] code-lab-ai request", {
+          url: CODE_AI_URL,
+          headers,
+        });
+
         const resp = await fetch(CODE_AI_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
           body: JSON.stringify({
             messages: [{ role: "user", content: userContent || code }],
             action: actionKey,
