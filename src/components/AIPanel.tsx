@@ -96,20 +96,12 @@ async function fetchNonStreaming({
   noteTitle: string;
   selectedText?: string;
 }) {
-  const token = await getSessionToken();
-  const resp = await fetch(NOTE_AI_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ messages, action, noteContent, noteTitle, selectedText }),
+  const resp = await callAI({
+    endpoint: NOTE_AI_URL,
+    body: { messages, action, noteContent, noteTitle, selectedText },
   });
 
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => ({}));
-    throw new Error(data.error || `Request failed (${resp.status})`);
-  }
+  return resp.json();
 
   return resp.json();
 }
