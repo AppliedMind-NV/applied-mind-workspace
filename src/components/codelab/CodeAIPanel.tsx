@@ -66,27 +66,15 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
-        const token = await getSessionToken();
-        const headers = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        };
-
-        const resp = await fetch(CODE_AI_URL, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
+        const resp = await callAI({
+          endpoint: CODE_AI_URL,
+          body: {
             messages: [{ role: "user", content: userContent || code }],
             action: actionKey,
             noteContent: code,
             noteTitle: title || "Code Lab",
-          }),
+          },
         });
-
-        if (!resp.ok) {
-          const data = await resp.json().catch(() => ({}));
-          throw new Error(data.error || `Request failed (${resp.status})`);
-        }
 
         const reader = resp.body?.getReader();
         if (!reader) throw new Error("No stream");

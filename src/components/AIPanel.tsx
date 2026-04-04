@@ -4,7 +4,7 @@ import { useNoteContext } from "@/contexts/NoteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { getSessionToken } from "@/lib/auth-helpers";
+import { callAI } from "@/lib/aiRequest";
 import ReactMarkdown from "react-markdown";
 
 type Msg = { role: "user" | "assistant"; content: string };
