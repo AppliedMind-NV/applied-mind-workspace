@@ -34,20 +34,15 @@ async function streamChat({
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
-  const token = await getSessionToken();
-  const resp = await fetch(NOTE_AI_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ messages, action, noteContent, noteTitle, selectedText }),
+  const resp = await callAI({
+    endpoint: NOTE_AI_URL,
+    body: { messages, action, noteContent, noteTitle, selectedText },
+  }).catch((err) => {
+    onError(err.message);
+    return null;
   });
 
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => ({}));
-    onError(data.error || `Request failed (${resp.status})`);
-    return;
+  if (!resp) return;
   }
 
   if (!resp.body) {
