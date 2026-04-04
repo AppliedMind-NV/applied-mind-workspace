@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-import { getSessionToken } from "@/lib/auth-helpers";
+import { callAI } from "@/lib/aiRequest";
 
 interface AIMessage {
   role: "user" | "assistant";
