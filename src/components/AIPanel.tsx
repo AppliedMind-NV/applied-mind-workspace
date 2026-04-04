@@ -101,8 +101,6 @@ async function fetchNonStreaming({
   });
 
   return resp.json();
-
-  return resp.json();
 }
 
 interface ActionDef {
