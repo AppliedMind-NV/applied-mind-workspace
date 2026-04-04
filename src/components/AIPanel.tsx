@@ -43,7 +43,6 @@ async function streamChat({
   });
 
   if (!resp) return;
-  }
 
   if (!resp.body) {
     onError("No response body");
