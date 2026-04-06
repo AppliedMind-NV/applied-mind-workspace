@@ -66,14 +66,18 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
+        const requestBody = {
+          messages: [{ role: "user", content: userContent || code }],
+          action: actionKey,
+          noteContent: code,
+          noteTitle: title || "Code Lab",
+        };
+        console.log("Code Lab AI request →", CODE_AI_URL);
+        console.log("Code Lab AI body →", JSON.stringify(requestBody).slice(0, 200));
+
         const resp = await callAI({
           endpoint: CODE_AI_URL,
-          body: {
-            messages: [{ role: "user", content: userContent || code }],
-            action: actionKey,
-            noteContent: code,
-            noteTitle: title || "Code Lab",
-          },
+          body: requestBody,
         });
 
         const reader = resp.body?.getReader();
