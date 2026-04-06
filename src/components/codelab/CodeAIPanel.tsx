@@ -66,14 +66,23 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
+        const safeCode = code || "";
+        const safeTitle = title || "Code Lab";
+
+        if (!safeCode.trim() && !userContent?.trim()) {
+          throw new Error("No code provided");
+        }
+
         const requestBody = {
-          messages: [{ role: "user", content: userContent || code }],
+          messages: [{ role: "user", content: userContent || safeCode }],
           action: actionKey,
-          noteContent: code,
-          noteTitle: title || "Code Lab",
+          noteContent: safeCode,
+          noteTitle: safeTitle,
         };
         console.log("Code Lab AI request →", CODE_AI_URL);
-        console.log("Code Lab AI body →", JSON.stringify(requestBody).slice(0, 200));
+        console.log("Code value:", safeCode.slice(0, 100));
+        console.log("Action:", actionKey);
+        console.log("Code Lab AI body →", JSON.stringify(requestBody).slice(0, 300));
 
         const resp = await callAI({
           endpoint: CODE_AI_URL,
