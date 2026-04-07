@@ -69,8 +69,12 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
         const safeCode = code || "";
         const safeTitle = title || "Code Lab";
 
+        console.log("EDITOR CODE VALUE:", JSON.stringify(safeCode).slice(0, 200));
+        console.log("EDITOR CODE LENGTH:", safeCode.length);
+        console.log("USER CONTENT:", userContent?.slice(0, 100));
+
         if (!safeCode.trim() && !userContent?.trim()) {
-          throw new Error("No code provided");
+          throw new Error("No code provided — please write some code in the editor first.");
         }
 
         const requestBody = {
