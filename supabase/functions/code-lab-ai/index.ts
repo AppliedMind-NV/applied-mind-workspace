@@ -55,6 +55,14 @@ serve(async (req) => {
     const userId = userData.user.id;
 
     const { messages, action, noteContent, noteTitle } = await req.json();
+    
+    console.log("CODE-LAB-AI received:", {
+      action,
+      noteContentLength: noteContent?.length || 0,
+      noteTitle,
+      messagesCount: messages?.length || 0,
+      firstMessageContent: messages?.[0]?.content?.slice(0, 100),
+    });
 
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
@@ -75,6 +83,8 @@ serve(async (req) => {
     if (messages && messages.length > 0) {
       aiMessages.push(...messages);
     }
+    
+    console.log("FINAL MESSAGES SENT TO AI:", aiMessages.map(m => ({ role: m.role, contentLength: m.content.length, preview: m.content.slice(0, 80) })));
 
     // Log usage
     try {
