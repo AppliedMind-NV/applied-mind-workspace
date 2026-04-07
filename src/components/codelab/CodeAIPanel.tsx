@@ -89,39 +89,55 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
           body: requestBody,
         });
 
-        const reader = resp.body?.getReader();
-        if (!reader) throw new Error("No stream");
+        const contentType = resp.headers.get("content-type") || "";
+        console.log("Code Lab AI response content-type:", contentType);
+        console.log("Code Lab AI response status:", resp.status);
 
-        const decoder = new TextDecoder();
-        let buffer = "";
         let text = "";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
+        if (contentType.includes("text/event-stream")) {
+          // SSE streaming path
+          const reader = resp.body?.getReader();
+          if (!reader) throw new Error("No stream reader available");
 
-          let idx: number;
-          while ((idx = buffer.indexOf("\n")) !== -1) {
-            let line = buffer.slice(0, idx);
-            buffer = buffer.slice(idx + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) continue;
-            const json = line.slice(6).trim();
-            if (json === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(json);
-              const c = parsed.choices?.[0]?.delta?.content;
-              if (c) {
-                text += c;
-                setMessages((prev) => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === "assistant")
-                    return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: text } : m));
-                  return [...prev, { role: "assistant", content: text }];
-                });
-              }
-            } catch {}
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            let idx: number;
+            while ((idx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, idx);
+              buffer = buffer.slice(idx + 1);
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line.startsWith("data: ")) continue;
+              const json = line.slice(6).trim();
+              if (json === "[DONE]") break;
+              try {
+                const parsed = JSON.parse(json);
+                const c = parsed.choices?.[0]?.delta?.content;
+                if (c) {
+                  text += c;
+                  setMessages((prev) => {
+                    const last = prev[prev.length - 1];
+                    if (last?.role === "assistant")
+                      return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: text } : m));
+                    return [...prev, { role: "assistant", content: text }];
+                  });
+                }
+              } catch {}
+            }
+          }
+        } else {
+          // JSON response path
+          const data = await resp.json();
+          console.log("Code Lab AI JSON response:", data);
+          text = data.result || data.message || data.choices?.[0]?.message?.content || "";
+          if (text) {
+            setMessages((prev) => [...prev, { role: "assistant", content: text }]);
           }
         }
 
