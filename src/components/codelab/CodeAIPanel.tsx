@@ -79,14 +79,16 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
 
         // For action buttons: send the code as the message content
         // For chat: userContent already contains the full prompt with code embedded
-        const messageContent = userContent || safeCode;
+        const messageContent = code && code.length > 0
+          ? code
+          : safeCode || "No code provided";
+        console.log("FINAL MESSAGE BEING SENT:", messageContent);
         const requestBody = {
-          messages: [{ role: "user", content: messageContent }],
+          messages: [{ role: "user", content: userContent || messageContent }],
           action: actionKey,
-          noteContent: safeCode,
+          noteContent: messageContent,
           noteTitle: safeTitle,
         };
-        console.log("FINAL MESSAGE CONTENT:", messageContent.slice(0, 200));
         console.log("Code Lab AI request →", CODE_AI_URL);
         console.log("Code value:", safeCode.slice(0, 100));
         console.log("Action:", actionKey);
