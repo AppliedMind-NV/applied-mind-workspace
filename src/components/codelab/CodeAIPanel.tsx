@@ -84,7 +84,7 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
           : safeCode || "No code provided";
         console.log("FINAL MESSAGE BEING SENT:", messageContent);
         const requestBody = {
-          messages: [{ role: "user", content: userContent || messageContent }],
+          messages: [{ role: "user", content: messageContent }],
           action: actionKey,
           noteContent: messageContent,
           noteTitle: safeTitle,
