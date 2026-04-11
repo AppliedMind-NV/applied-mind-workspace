@@ -54,8 +54,24 @@ serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { messages, action, noteContent, noteTitle } = await req.json();
+    const body = await req.json();
     
+    console.log("RAW BODY:", JSON.stringify(body));
+
+    const messages = body?.messages || [];
+    const action = body?.action || "chat";
+    const noteContent =
+      body?.noteContent ||
+      body?.messages?.[0]?.content ||
+      body?.code ||
+      "";
+    const noteTitle =
+      body?.noteTitle ||
+      body?.title ||
+      "Code Lab";
+
+    console.log("FINAL CODE:", noteContent?.slice?.(0, 200));
+    console.log("FINAL PROMPT:", action);
     console.log("CODE-LAB-AI received:", {
       action,
       noteContentLength: noteContent?.length || 0,
