@@ -190,7 +190,7 @@ export default function CodeLab() {
       }
 
       const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-code`,
+        `https://eccspsmttoytiqiqvham.supabase.co/functions/v1/run-code`,
         {
           method: "POST",
           headers: {
