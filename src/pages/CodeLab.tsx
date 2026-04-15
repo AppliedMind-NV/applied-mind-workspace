@@ -182,55 +182,29 @@ export default function CodeLab() {
     setOutput("▸ Running…\n");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        setOutput("▸ Error: You must be logged in to run code.");
-        setRunning(false);
-        return;
-      }
-
       const resp = await fetch(
-        `https://eccspsmttoytiqiqvham.supabase.co/functions/v1/run-code`,
+        "https://eccpsmttotyqiqhvam.supabase.co/functions/v1/run-code",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ code, language }),
         }
       );
 
-      const result = await resp.json();
+      const data = await resp.json();
+      console.log("RUN-CODE RESPONSE:", data);
 
       if (!resp.ok) {
-        if (resp.status === 502) {
-          setOutput(
-            "▸ Code execution service is temporarily unavailable.\n\n" +
-            "The external sandbox provider we use is currently unreachable.\n" +
-            "This is a known issue — we're working on switching to a new provider.\n\n" +
-            "In the meantime, you can still write and save your code.\n" +
-            "Try running it in a local editor or an online sandbox like replit.com."
-          );
-        } else if (resp.status === 429) {
-          setOutput("▸ Rate limit reached. Please wait a moment before running again.");
-        } else if (resp.status === 408) {
-          setOutput("▸ Code execution timed out (10s limit). Try simplifying your code.");
-        } else {
-          setOutput(`▸ Error: ${result.error || "Execution failed"}`);
-        }
-        setRunning(false);
-        return;
+        throw new Error(data.error || data.stderr || "Execution failed");
       }
 
-      const parts: string[] = [];
-      if (result.stdout) parts.push(result.stdout.trimEnd());
-      if (result.stderr) parts.push(`⚠ ${result.stderr.trimEnd()}`);
-      if (parts.length === 0) parts.push("(no output)");
-      parts.push(
-        `\n▸ Process finished (exit code ${result.exitCode ?? 0}) — ${result.language} ${result.version}`
-      );
-      setOutput(parts.join("\n"));
+      if (data.stderr) {
+        setOutput(`⚠ ${data.stderr}`);
+      } else {
+        setOutput(data.stdout || "(no output)");
+      }
     } catch (err: any) {
       setOutput(`▸ Error: ${err.message || "Network error"}`);
     } finally {
