@@ -176,35 +176,30 @@ export default function CodeLab() {
     }
   };
 
+  const RUN_CODE_URL = "https://eccspsmttoytiqiqvham.supabase.co/functions/v1/run-code";
+
   const runCode = async () => {
     if (!code.trim() || !selectedId) return;
     setRunning(true);
     setOutput("▸ Running…\n");
+    console.log("RUN-CODE URL:", RUN_CODE_URL);
 
     try {
-      const resp = await fetch(
-        "https://eccpsmttotyqiqhvam.supabase.co/functions/v1/run-code",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ code, language }),
-        }
-      );
+      const resp = await fetch(RUN_CODE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, language }),
+      });
 
       const data = await resp.json();
       console.log("RUN-CODE RESPONSE:", data);
 
       if (!resp.ok) {
-        throw new Error(data.error || data.stderr || "Execution failed");
+        throw new Error(data?.error || data?.stderr || "Execution failed");
       }
 
-      if (data.stderr) {
-        setOutput(`⚠ ${data.stderr}`);
-      } else {
-        setOutput(data.stdout || "(no output)");
-      }
+      const output = data.stderr ? data.stderr : data.stdout;
+      setOutput(output || "(no output)");
     } catch (err: any) {
       setOutput(`▸ Error: ${err.message || "Network error"}`);
     } finally {
