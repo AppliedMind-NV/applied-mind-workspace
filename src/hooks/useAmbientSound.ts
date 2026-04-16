@@ -21,12 +21,61 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 // In-memory cache: SoundType → data URL. Lives for the page session.
 const audioCache = new Map<Exclude<SoundType, "Silence">, string>();
 
+// localStorage key prefix for persisted base64 audio
+const STORAGE_PREFIX = "appliedmind:ambient-sound:";
+const STORAGE_VERSION = "v1"; // bump to invalidate all cached sounds
+
+function storageKey(sound: Exclude<SoundType, "Silence">): string {
+  return `${STORAGE_PREFIX}${STORAGE_VERSION}:${sound}`;
+}
+
+function loadFromStorage(sound: Exclude<SoundType, "Silence">): string | null {
+  try {
+    const raw = localStorage.getItem(storageKey(sound));
+    if (!raw) return null;
+    return `data:audio/mpeg;base64,${raw}`;
+  } catch (err) {
+    console.warn("[useAmbientSound] localStorage read failed:", err);
+    return null;
+  }
+}
+
+function saveToStorage(sound: Exclude<SoundType, "Silence">, base64: string): void {
+  try {
+    localStorage.setItem(storageKey(sound), base64);
+    console.log("[useAmbientSound] persisted to localStorage:", sound, `${Math.round(base64.length / 1024)}KB`);
+  } catch (err) {
+    // Likely QuotaExceededError — clear old sound entries and retry once
+    console.warn("[useAmbientSound] localStorage write failed, attempting cleanup:", err);
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(STORAGE_PREFIX) && k !== storageKey(sound)) {
+          localStorage.removeItem(k);
+        }
+      }
+      localStorage.setItem(storageKey(sound), base64);
+      console.log("[useAmbientSound] persisted after cleanup:", sound);
+    } catch (retryErr) {
+      console.error("[useAmbientSound] localStorage persist gave up:", retryErr);
+    }
+  }
+}
+
 async function generateSound(sound: Exclude<SoundType, "Silence">): Promise<string> {
-  // Return cached if available
+  // 1) In-memory cache (fastest)
   const cached = audioCache.get(sound);
   if (cached) {
-    console.log("[useAmbientSound] cache hit:", sound);
+    console.log("[useAmbientSound] memory cache hit:", sound);
     return cached;
+  }
+
+  // 2) localStorage cache (survives reloads)
+  const persisted = loadFromStorage(sound);
+  if (persisted) {
+    console.log("[useAmbientSound] localStorage cache hit:", sound);
+    audioCache.set(sound, persisted);
+    return persisted;
   }
 
   const { data: { session } } = await supabase.auth.getSession();
