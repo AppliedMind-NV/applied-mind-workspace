@@ -179,29 +179,44 @@ export default function CodeLab() {
   const RUN_CODE_URL = "https://eccspsmttoytiqiqvham.supabase.co/functions/v1/run-code";
 
   const runCode = async () => {
-    if (!code.trim() || !selectedId) return;
+    if (!selectedId) return;
+    if (!code.trim()) {
+      toast({ title: "Nothing to run", description: "Write some code first." });
+      return;
+    }
     setRunning(true);
     setOutput("▸ Running…\n");
-    console.log("RUN-CODE URL:", RUN_CODE_URL);
+    console.log("RUN-CODE request", { language, codeLength: code.length });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 35_000);
 
     try {
       const resp = await fetch(RUN_CODE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, language }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
+      console.log("RUN-CODE response status", resp.status);
 
-      const data = await resp.json();
-      console.log("RUN-CODE RESPONSE:", data);
-
-      if (!resp.ok) {
-        throw new Error(data?.error || data?.stderr || "Execution failed");
+      let data: { stdout: string; stderr: string; exitCode: number; language: string };
+      try {
+        data = await resp.json();
+      } catch {
+        data = { stdout: "", stderr: "Malformed response from execution service", exitCode: 1, language };
       }
 
-      const output = data.stderr ? data.stderr : data.stdout;
-      setOutput(output || "(no output)");
+      const display = data.stderr ? data.stderr : data.stdout;
+      setOutput(display || "(no output)");
     } catch (err: any) {
-      setOutput(`▸ Error: ${err.message || "Network error"}`);
+      clearTimeout(timeout);
+      const msg = err.name === "AbortError"
+        ? "Execution timed out (35s limit)"
+        : err.message || "Network error";
+      setOutput(`▸ Error: ${msg}`);
+      toast({ title: "Run failed", description: msg, variant: "destructive" });
     } finally {
       setRunning(false);
     }
@@ -395,7 +410,8 @@ export default function CodeLab() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="text-[10px] px-1.5 py-1 rounded bg-accent text-foreground font-mono outline-none cursor-pointer border-none"
+              disabled={running}
+              className="text-[10px] px-1.5 py-1 rounded bg-accent text-foreground font-mono outline-none cursor-pointer border-none disabled:opacity-50"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.value} value={l.value}>{l.label}</option>
