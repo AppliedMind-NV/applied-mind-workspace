@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Phone, Mail, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Brain, Mail, Lock, ArrowRight, Phone, KeyRound } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 type AuthMode = "login" | "signup" | "forgot" | "phone";
 
@@ -10,26 +14,33 @@ export default function Auth() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { session } = useAuth();
 
   useEffect(() => {
-    if (session) navigate("/");
+    if (session) navigate("/dashboard");
   }, [session, navigate]);
 
   const resetState = () => { setError(""); setMessage(""); };
 
+  const switchMode = (newMode: AuthMode) => {
+    setMode(newMode);
+    resetState();
+    setOtpSent(false);
+    setOtp("");
+  };
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    resetState();
     setLoading(true);
+    resetState();
     if (mode === "signup") {
       const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
       if (error) setError(error.message);
@@ -47,8 +58,8 @@ export default function Auth() {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    resetState();
     setLoading(true);
+    resetState();
     const { error } = await supabase.auth.signInWithOtp({ phone });
     if (error) setError(error.message);
     else { setOtpSent(true); setMessage("OTP sent to your phone."); }
@@ -57,14 +68,12 @@ export default function Auth() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    resetState();
     setLoading(true);
+    resetState();
     const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: "sms" });
     if (error) setError(error.message);
     setLoading(false);
   };
-
-  const switchMode = (newMode: AuthMode) => { setMode(newMode); resetState(); setOtpSent(false); setOtp(""); };
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -79,201 +88,151 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden px-4">
-      {/* Background effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -left-1/4 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px]" />
-        <div className="absolute -bottom-1/3 -right-1/4 w-[500px] h-[500px] rounded-full bg-accent/10 blur-[100px]" />
-        <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] rounded-full bg-primary/3 blur-[80px] animate-pulse-glow" />
-      </div>
+    <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden px-4">
+      <div className="absolute inset-0 gradient-mesh" />
+      <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-primary/8 rounded-full blur-3xl animate-pulse-glow" />
+      <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-lavender/6 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: '1s' }} />
 
-      <div className="relative z-10 w-full max-w-sm animate-fade-in">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <Sparkles size={22} className="text-primary" />
+      <div className="w-full max-w-md relative z-10">
+        <Link to="/" className="flex items-center justify-center gap-2.5 mb-8">
+          <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
+            <Brain className="w-5 h-5 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">AppliedMind</h1>
-          <p className="text-sm text-muted-foreground mt-1.5">
-            {mode === "signup" && "Create your account"}
-            {mode === "login" && "Welcome back"}
-            {mode === "forgot" && "Reset your password"}
-            {mode === "phone" && "Sign in with phone"}
-          </p>
-        </div>
+          <span className="text-xl font-bold font-heading text-foreground">AppliedMind</span>
+        </Link>
 
-        {/* Card */}
-        <div className="glass-card p-6 space-y-5">
-          {/* Google */}
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={googleLoading}
-            className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-lg border border-border bg-card/50 text-sm font-medium hover:bg-accent/50 transition-all disabled:opacity-50"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            </svg>
-            {googleLoading ? "Signing in…" : "Continue with Google"}
-          </button>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card/50 backdrop-blur px-3 text-muted-foreground">or</span>
-            </div>
-          </div>
-
-          {/* Tab toggle */}
-          <div className="flex items-center justify-center gap-1 rounded-xl bg-muted/50 p-1">
-            <button
-              onClick={() => switchMode("login")}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                mode !== "phone"
-                  ? "bg-primary text-primary-foreground shadow-sm btn-glow"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Mail size={14} />
-              Email
-            </button>
-            <button
-              onClick={() => switchMode("phone")}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                mode === "phone"
-                  ? "bg-primary text-primary-foreground shadow-sm btn-glow"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Phone size={14} />
-              Phone
-            </button>
-          </div>
-
-          {/* Email forms */}
-          {mode !== "phone" && (
-            <form onSubmit={handleEmailAuth} className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50"
-                  placeholder="you@example.com"
-                />
+        <Card className="glass-card border-border/30 glow-sm">
+          <CardHeader className="text-center pb-2">
+            <CardTitle className="text-2xl font-heading">
+              {mode === "login" && "Welcome back"}
+              {mode === "signup" && "Create your account"}
+              {mode === "forgot" && "Reset password"}
+              {mode === "phone" && "Phone sign in"}
+            </CardTitle>
+            <CardDescription>
+              {mode === "login" && "Sign in to continue learning"}
+              {mode === "signup" && "Start your learning journey"}
+              {mode === "forgot" && "We'll send you a reset link"}
+              {mode === "phone" && "Sign in with your phone number"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-4">
+            {error && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+                {error}
               </div>
-              {mode !== "forgot" && (
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-1.5">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50"
-                    placeholder="••••••••"
-                  />
+            )}
+            {message && (
+              <div className="rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 text-sm text-primary">
+                {message}
+              </div>
+            )}
+
+            {(mode === "login" || mode === "signup" || mode === "forgot") && (
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input type="email" placeholder="you@university.edu" className="pl-10" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
                 </div>
-              )}
 
-              {error && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>}
-              {message && <p className="text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">{message}</p>}
+                {mode !== "forgot" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-foreground">Password</label>
+                      {mode === "login" && (
+                        <button type="button" onClick={() => switchMode("forgot")} className="text-xs text-primary hover:underline">Forgot password?</button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input type="password" placeholder="••••••••" className="pl-10" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+                    </div>
+                  </div>
+                )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 btn-glow"
-              >
-                {loading ? "…" : mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Sign in"}
-              </button>
-            </form>
-          )}
+                <Button variant="hero" className="w-full gap-2" size="lg" type="submit" disabled={loading}>
+                  {loading ? "Loading..." : mode === "login" ? "Sign In" : mode === "signup" ? "Create Account" : "Send Reset Link"}
+                  {!loading && <ArrowRight className="w-4 h-4" />}
+                </Button>
+              </form>
+            )}
 
-          {/* Phone forms */}
-          {mode === "phone" && !otpSent && (
-            <form onSubmit={handleSendOtp} className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Phone number</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50"
-                  placeholder="+1 (555) 000-0000"
-                />
-              </div>
-              {error && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>}
-              {message && <p className="text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">{message}</p>}
-              <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 btn-glow">
-                {loading ? "…" : "Send OTP"}
-              </button>
-            </form>
-          )}
+            {mode === "phone" && !otpSent && (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Phone number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input type="tel" placeholder="+1 (555) 000-0000" className="pl-10" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                  </div>
+                </div>
+                <Button variant="hero" className="w-full gap-2" size="lg" type="submit" disabled={loading}>
+                  {loading ? "Loading..." : "Send OTP"}
+                  {!loading && <ArrowRight className="w-4 h-4" />}
+                </Button>
+              </form>
+            )}
 
-          {mode === "phone" && otpSent && (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1.5">Enter OTP code</label>
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  required
-                  maxLength={6}
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-muted/30 text-sm text-center tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-muted-foreground/50"
-                  placeholder="000000"
-                />
-              </div>
-              {error && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{error}</p>}
-              {message && <p className="text-xs text-primary bg-primary/10 px-3 py-2 rounded-lg">{message}</p>}
-              <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-50 btn-glow">
-                {loading ? "…" : "Verify & Sign in"}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setOtpSent(false); setOtp(""); resetState(); }}
-                className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Change phone number
-              </button>
-            </form>
-          )}
-        </div>
+            {mode === "phone" && otpSent && (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Enter OTP</label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input type="text" placeholder="123456" className="pl-10" value={otp} onChange={(e) => setOtp(e.target.value)} required maxLength={6} />
+                  </div>
+                </div>
+                <Button variant="hero" className="w-full gap-2" size="lg" type="submit" disabled={loading}>
+                  {loading ? "Loading..." : "Verify & Sign In"}
+                  {!loading && <ArrowRight className="w-4 h-4" />}
+                </Button>
+                <button type="button" onClick={() => { setOtpSent(false); setOtp(""); resetState(); }} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Change phone number
+                </button>
+              </form>
+            )}
 
-        {/* Bottom links */}
-        {mode !== "phone" && (
-          <div className="mt-5 space-y-2 text-center text-xs text-muted-foreground">
-            {mode === "login" && (
+            {(mode === "login" || mode === "signup") && (
               <>
-                <p>Don't have an account?{" "}
-                  <button onClick={() => switchMode("signup")} className="text-primary font-medium hover:underline">Sign up</button>
-                </p>
-                <p>
-                  <button onClick={() => switchMode("forgot")} className="text-primary/70 hover:text-primary hover:underline">Forgot password?</button>
-                </p>
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border/50" />
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-card px-3 text-muted-foreground">or continue with</span>
+                  </div>
+                </div>
+                <Button variant="outline" className="w-full" size="lg" onClick={handleGoogleSignIn} disabled={googleLoading}>
+                  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  {googleLoading ? "Signing in..." : "Google"}
+                </Button>
               </>
             )}
-            {mode === "signup" && (
-              <p>Already have an account?{" "}
-                <button onClick={() => switchMode("login")} className="text-primary font-medium hover:underline">Sign in</button>
-              </p>
-            )}
-            {mode === "forgot" && (
-              <p>
-                <button onClick={() => switchMode("login")} className="text-primary font-medium hover:underline">Back to sign in</button>
-              </p>
-            )}
-          </div>
-        )}
+
+            <div className="text-center text-sm text-muted-foreground mt-4 space-y-1">
+              {mode === "login" && (
+                <>
+                  <p>Don't have an account? <button onClick={() => switchMode("signup")} className="text-primary font-medium hover:underline">Sign up</button></p>
+                  <p><button onClick={() => switchMode("phone")} className="text-muted-foreground hover:text-foreground hover:underline text-xs">Sign in with phone</button></p>
+                </>
+              )}
+              {mode === "signup" && (
+                <p>Already have an account? <button onClick={() => switchMode("login")} className="text-primary font-medium hover:underline">Sign in</button></p>
+              )}
+              {(mode === "forgot" || mode === "phone") && (
+                <p><button onClick={() => switchMode("login")} className="text-primary font-medium hover:underline">Back to sign in</button></p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
