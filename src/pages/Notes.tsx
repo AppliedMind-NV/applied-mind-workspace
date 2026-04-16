@@ -527,10 +527,10 @@ export default function Notes() {
     >
       <button
         onClick={() => selectNote(note)}
-        className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+        className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
           selectedNote === note.id
-            ? "bg-accent text-foreground"
-            : "hover:bg-accent/50 text-foreground"
+            ? "bg-primary/10 text-foreground border border-primary/15"
+            : "hover:bg-accent/30 text-foreground border border-transparent"
         }`}
       >
         <div className="flex items-start gap-2">
@@ -590,8 +590,8 @@ export default function Notes() {
   return (
     <div className="flex h-full animate-fade-in">
       {/* Sidebar */}
-      <div className="w-64 border-r flex flex-col shrink-0">
-        <div className="p-3 border-b space-y-2">
+      <div className="w-64 border-r border-border/50 flex flex-col shrink-0 bg-sidebar">
+        <div className="p-3 border-b border-border/50 space-y-2">
           <Link
             to="/"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
@@ -602,34 +602,34 @@ export default function Notes() {
           <div className="flex gap-1.5">
             <button
               onClick={() => createNote(null)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all btn-glow"
             >
               <Plus size={13} />
               New Note
             </button>
             <button
               onClick={() => setShowUpload(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="Import Lecture"
             >
               <Upload size={13} />
             </button>
             <button
               onClick={() => setShowRecorder(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="Record Lecture"
             >
               <Mic size={13} />
             </button>
             <button
               onClick={createFolder}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="New Folder"
             >
               <FolderPlus size={13} />
             </button>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-background">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/30">
             <Search size={13} className="text-muted-foreground" />
             <input
               type="text"
@@ -848,7 +848,7 @@ export default function Notes() {
         )}
 
         {/* Compact study sounds at bottom of editor */}
-        <div className="border-t px-4 py-3 flex justify-center shrink-0">
+        <div className="border-t border-border/50 px-4 py-3 flex justify-center shrink-0">
           <StudySounds compact />
         </div>
       </div>
