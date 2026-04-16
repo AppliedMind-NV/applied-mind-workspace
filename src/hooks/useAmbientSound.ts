@@ -111,6 +111,7 @@ async function generateSound(sound: Exclude<SoundType, "Silence">): Promise<stri
 
   const url = `data:audio/mpeg;base64,${data.audioContent}`;
   audioCache.set(sound, url);
+  saveToStorage(sound, data.audioContent);
   return url;
 }
 
