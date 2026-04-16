@@ -1,25 +1,47 @@
 ---
-name: Premium Dark Pink-Magenta Theme
-description: Dark UI foundation with pink-magenta primary (330° 70%), lavender/plum accents, glass cards, glow effects
+name: Premium Dark Berry-Magenta Theme (Lumina Style)
+description: Dark UI with berry-magenta primary (330° 65%), lavender/rose/plum accents, glass-morphism, gradient-mesh backgrounds, Plus Jakarta Sans headings
 type: design
 ---
 
 ## Color System
-- Primary accent: Pink-magenta (330 70% 56% light / 330 70% 60% dark)
-- Background: Deep slate (240 15% 6% dark / 240 10% 96% light)
-- Cards: Slightly lighter slate with glass blur effect
-- Accents: Lavender/purple tones (270°) for secondary surfaces
-- Glow: Primary and secondary (270 50% 65%) for effects
+- Primary accent: Berry-magenta (330 65% 55%)
+- Background: Deep slate (240 15% 6%)
+- Cards: Slightly lighter slate (240 12% 9%) with glass blur
+- Extended palette: lavender (270 40% 70%), rose (340 60% 65%), plum (280 35% 35%), cool-blue (220 60% 60%)
+- Surface glass: 240 12% 12%
+- Glow: primary (330 65% 55%) + secondary (270 40% 50%)
 
-## Effects
-- `.glass-card`: backdrop-blur(16px) + translucent bg + border
-- `.glow-border`: gradient pseudo-element border glow
-- `.gradient-text`: primary→secondary gradient text
-- `.btn-glow`: box-shadow glow on primary buttons
-- Animations: `float`, `pulse-glow`, enhanced `fade-in`
+## Typography
+- Headings: Plus Jakarta Sans (font-heading)
+- Body: Inter (font-sans)
+- Prose: Source Serif 4
+- Code: JetBrains Mono
+
+## Effects & Utilities
+- `.glass`: backdrop-blur-xl + translucent bg + border
+- `.glass-card`: backdrop-blur-lg + rounded-2xl
+- `.glow-primary`: large box-shadow glow
+- `.glow-sm`: subtle box-shadow glow
+- `.gradient-primary`: primary→secondary gradient bg
+- `.gradient-text`: primary→lavender gradient text
+- `.gradient-mesh`: multi-radial ambient bg
+- `.text-gradient-hero`: white→primary→lavender hero text
+- `.glow-border`: gradient pseudo-element border
+- `.btn-glow`: box-shadow on buttons
+
+## Button Variants
+- `hero`: gradient-primary + glow + bold
+- `pill`: rounded-full secondary
+- `glass`: glass bg
+- Sizes: default, sm, lg, xl
 
 ## Design Direction
-- Modern, premium, slightly feminine, student-friendly
-- Dark-first but light mode supported
-- Layered depth with subtle glows, glass effects, rounded corners (0.75rem)
-- Clean sans-serif (Inter), strong hierarchy, no visual clutter
+- Dark-first, premium, slightly feminine, student-friendly
+- Layered depth with glass, mesh gradients, pulse-glow animations
+- Clean sans-serif, strong hierarchy, academic feel
+- Rounded corners (0.75rem base, up to 1.5rem)
+
+## Landing Page
+- Componentized: Navbar, HeroSection, FeaturesSection, HowItWorksSection, TestimonialsSection, CTASection, Footer
+- Fixed glass navbar, full-height hero, mesh gradient backgrounds
