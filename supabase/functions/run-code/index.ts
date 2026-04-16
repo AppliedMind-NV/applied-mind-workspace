@@ -4,7 +4,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_GATEWAY_URL = "https://api.openai.com/v1/chat/completions";
 const SUPPORTED_LANGUAGES = new Set(["python", "javascript"]);
 const MAX_CODE_LENGTH = 50_000;
 const MAX_TIMEOUT_MS = 30_000;
@@ -69,9 +69,9 @@ Deno.serve(async (req) => {
     );
   }
 
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableApiKey) {
-    console.error("LOVABLE_API_KEY not configured");
+  const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!openaiApiKey) {
+    console.error("OPENAI_API_KEY not configured");
     return errorResponse("Code execution service is not configured", language);
   }
 
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
   let aiResponse: Response;
   try {
     const aiPayload = {
-      model: "google/gemini-2.5-flash",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: buildSystemPrompt(language) },
         { role: "user", content: code },
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableApiKey}`,
+        Authorization: `Bearer ${openaiApiKey}`,
       },
       signal: controller.signal,
       body: JSON.stringify(aiPayload),
