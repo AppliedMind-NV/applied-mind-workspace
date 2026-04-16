@@ -192,9 +192,14 @@ export default function CodeLab() {
     const timeout = setTimeout(() => controller.abort(), 35_000);
 
     try {
+      const { getSessionToken } = await import("@/lib/auth-helpers");
+      const token = await getSessionToken();
       const resp = await fetch(RUN_CODE_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ code, language }),
         signal: controller.signal,
       });
