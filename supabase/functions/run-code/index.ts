@@ -161,6 +161,18 @@ Deno.serve(async (req) => {
     language,
   };
 
+  // Log usage to ai_logs
+  try {
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    await adminClient.from("ai_logs").insert({
+      user_id: userId,
+      feature: "run-code",
+    });
+  } catch (logErr) {
+    console.error("Failed to log AI usage:", logErr);
+  }
+
   console.log("RUN-CODE final response:", JSON.stringify(finalResponse).slice(0, 300));
 
   return new Response(JSON.stringify(finalResponse), {
