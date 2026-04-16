@@ -7,8 +7,6 @@ project_id = "bqeohnojnqqewtcyzntz"
     verify_jwt = false
   [functions.elevenlabs-transcribe]
     verify_jwt = false
-  [functions.generate-ambient-sounds]
-    verify_jwt = false
   [functions.code-lab-ai]
     verify_jwt = false
   [functions.note-ai]

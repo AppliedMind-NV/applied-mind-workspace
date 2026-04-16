@@ -6,84 +6,64 @@ export type SoundType = "Rain" | "Café" | "White Noise" | "Forest" | "Silence";
 
 /**
  * ============================================================
- * AMBIENT SOUND SYSTEM — Pre-cached ElevenLabs audio from Storage
+ * AMBIENT SOUND SYSTEM — Direct ElevenLabs via edge function
  * ============================================================
  *
- * Sounds are stored in the 'ambient-sounds' storage bucket as MP3 files.
- * On first load, the hook checks if files exist in storage.
- * If not, it triggers generation via the edge function.
- * Once generated, sounds load instantly from the public URL.
- *
- *   "Rain"        → ambient-sounds/rain.mp3
- *   "Café"        → ambient-sounds/cafe.mp3
- *   "White Noise"  → ambient-sounds/whitenoise.mp3
- *   "Forest"      → ambient-sounds/forest.mp3
- *   "Silence"      → No audio
+ * Frontend → /functions/v1/elevenlabs-sfx → ElevenLabs.
+ * Returns base64 audio that we play as a data: URL on loop.
+ * Cached in-memory per session (Map<SoundType, string>).
+ * No Supabase Storage, no pre-cached MP3s, no fallback chain.
  * ============================================================
  */
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Maps each SoundType to its storage file key
-const SOUND_FILE_MAP: Record<Exclude<SoundType, "Silence">, string> = {
-  Rain: "rain.mp3",
-  "Café": "cafe.mp3",
-  "White Noise": "whitenoise.mp3",
-  Forest: "forest.mp3",
-};
+// In-memory cache: SoundType → data URL. Lives for the page session.
+const audioCache = new Map<Exclude<SoundType, "Silence">, string>();
 
-// Reverse map: SoundType → edge function key
-const SOUND_KEY_MAP: Record<Exclude<SoundType, "Silence">, string> = {
-  Rain: "rain",
-  "Café": "cafe",
-  "White Noise": "whitenoise",
-  Forest: "forest",
-};
-
-function getPublicUrl(file: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/ambient-sounds/${file}`;
-}
-
-/** Check if a sound file exists in storage by doing a HEAD request */
-async function soundExists(file: string): Promise<boolean> {
-  try {
-    const res = await fetch(getPublicUrl(file), { method: "HEAD" });
-    return res.ok;
-  } catch {
-    return false;
+async function generateSound(sound: Exclude<SoundType, "Silence">): Promise<string> {
+  // Return cached if available
+  const cached = audioCache.get(sound);
+  if (cached) {
+    console.log("[useAmbientSound] cache hit:", sound);
+    return cached;
   }
-}
 
-/** Trigger generation of a single sound via edge function */
-async function triggerGeneration(soundKey: string): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-ambient-sounds`, {
+  if (!session?.access_token) {
+    throw new Error("Not authenticated");
+  }
+
+  const payload = { sound };
+  console.log("[useAmbientSound] request payload:", payload);
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/elevenlabs-sfx`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${session?.access_token}`,
+      Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({ sound: soundKey }),
+    body: JSON.stringify(payload),
   });
 
+  console.log("[useAmbientSound] response status:", res.status);
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(err.error || `Generation failed: ${res.status}`);
+    const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    console.error("[useAmbientSound] backend error:", errBody);
+    throw new Error(errBody.error || `Sound generation failed (${res.status})`);
   }
 
   const data = await res.json();
-  if (!data.success) throw new Error(data.error || "Generation failed");
+  if (!data.success || !data.audioContent) {
+    console.error("[useAmbientSound] invalid response shape:", data);
+    throw new Error(data.error || "No audio returned");
+  }
 
-  const result = data.results[soundKey];
-  if (!result?.url) throw new Error("No URL returned");
-  return result.url;
+  const url = `data:audio/mpeg;base64,${data.audioContent}`;
+  audioCache.set(sound, url);
+  return url;
 }
-
-// ============================================================
-// Hook
-// ============================================================
 
 export function useAmbientSound() {
   const [active, setActive] = useState<SoundType | null>(null);
@@ -91,7 +71,6 @@ export function useAmbientSound() {
   const [loading, setLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  /** Stop all currently playing audio */
   const stop = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -100,10 +79,10 @@ export function useAmbientSound() {
     }
   }, []);
 
-  /** Start a specific sound — loads from storage or generates if needed */
   const play = useCallback(
     async (sound: SoundType) => {
       stop();
+      console.log("[useAmbientSound] selected sound:", sound);
 
       if (sound === "Silence") {
         setActive("Silence");
@@ -112,46 +91,16 @@ export function useAmbientSound() {
 
       setLoading(true);
       try {
-        const file = SOUND_FILE_MAP[sound];
-        const key = SOUND_KEY_MAP[sound];
-        let url = getPublicUrl(file);
-
-        // Check if sound exists in storage
-        const exists = await soundExists(file);
-
-        if (!exists) {
-          // Generate and upload to storage
-          toast({
-            title: "Generating sound…",
-            description: `Creating ${sound} ambience. This only happens once.`,
-          });
-          try {
-            url = await triggerGeneration(key);
-          } catch (genErr) {
-            console.error("Generation failed:", genErr);
-            toast({
-              title: "Generation failed",
-              description: `Could not generate ${sound}. Try again from Settings.`,
-              variant: "destructive",
-            });
-            setActive(null);
-            setLoading(false);
-            return;
-          }
-        }
-
-        // Play from storage URL with error handling
+        const url = await generateSound(sound);
         const audio = new Audio(url);
         audio.loop = true;
         audio.volume = volume;
-        audio.crossOrigin = "anonymous";
 
-        // Add error handler for load failures
         audio.addEventListener("error", () => {
-          console.error("Audio load error for:", sound, audio.error);
+          console.error("[useAmbientSound] playback error:", sound, audio.error);
           toast({
             title: "Playback failed",
-            description: `Could not load ${sound} audio. Try regenerating in Settings.`,
+            description: `Could not play ${sound}. Please try again.`,
             variant: "destructive",
           });
           setActive(null);
@@ -162,10 +111,11 @@ export function useAmbientSound() {
         await audio.play();
         setActive(sound);
       } catch (err) {
-        console.error("Failed to play sound:", err);
+        console.error("[useAmbientSound] generation/playback failed:", err);
         toast({
-          title: "Sound failed",
-          description: "Could not load ambient sound. Please try again.",
+          title: "Sound unavailable",
+          description:
+            err instanceof Error ? err.message : "Could not generate ambient sound.",
           variant: "destructive",
         });
         setActive(null);
@@ -176,7 +126,6 @@ export function useAmbientSound() {
     [stop, volume],
   );
 
-  /** Toggle a sound on/off */
   const toggle = useCallback(
     (sound: SoundType) => {
       if (loading) return;
@@ -190,14 +139,12 @@ export function useAmbientSound() {
     [active, play, stop, loading],
   );
 
-  // Sync volume changes to the live audio element
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
 
-  // Cleanup on unmount
   useEffect(() => () => stop(), [stop]);
 
   return { active, toggle, volume, setVolume, loading };
