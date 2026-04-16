@@ -7,7 +7,6 @@ import {
   Code2,
   Clock,
   Settings,
-  ChevronLeft,
   Sparkles,
 } from "lucide-react";
 
@@ -28,14 +27,14 @@ interface AppSidebarProps {
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   return (
     <aside
-      className={`h-full border-r bg-sidebar flex flex-col shrink-0 transition-all duration-200 ${
+      className={`h-full border-r border-border/50 bg-sidebar flex flex-col shrink-0 transition-all duration-200 ${
         collapsed ? "w-14" : "w-56"
       }`}
     >
       {/* Logo */}
-      <div className="h-12 flex items-center px-3 border-b gap-2">
-        <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
-          <Sparkles size={14} className="text-primary-foreground" />
+      <div className="h-12 flex items-center px-3 border-b border-border/50 gap-2">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+          <Sparkles size={14} className="text-primary" />
         </div>
         {!collapsed && (
           <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">
@@ -52,10 +51,10 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
             to={item.path}
             end={item.path === "/"}
             className={({ isActive }) =>
-              `flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors ${
+              `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all duration-150 ${
                 isActive
-                  ? "bg-sidebar-accent text-primary font-medium"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                  ? "bg-primary/10 text-primary font-medium border border-primary/15"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 border border-transparent"
               } ${collapsed ? "justify-center" : ""}`
             }
           >
@@ -66,14 +65,14 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
       </nav>
 
       {/* Settings */}
-      <div className="border-t py-2 px-2">
+      <div className="border-t border-border/50 py-2 px-2">
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-colors ${
+            `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all duration-150 ${
               isActive
-                ? "bg-sidebar-accent text-primary font-medium"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                ? "bg-primary/10 text-primary font-medium border border-primary/15"
+                : "text-sidebar-foreground hover:bg-sidebar-accent/50 border border-transparent"
             } ${collapsed ? "justify-center" : ""}`
           }
         >
