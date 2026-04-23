@@ -418,6 +418,18 @@ export default function Notes() {
     return notesInFolder(folder.id).some(matchesSearch);
   };
 
+  // While searching, transiently expand any folder containing matches so results are visible,
+  // without mutating the user's explicit collapse/expand state.
+  const effectiveExpanded = useMemo(() => {
+    if (!search) return expandedFolders;
+    const next = new Set(expandedFolders);
+    for (const folder of folders) {
+      if (notesInFolder(folder.id).some(matchesSearch)) next.add(folder.id);
+    }
+    return next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedFolders, search, folders, notes]);
+
   const formatTime = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60000);
