@@ -1,11 +1,18 @@
-import { User, Moon, Sun, Shield, LogOut } from "lucide-react";
+import { User, Moon, Sun, Shield, LogOut, Sparkles, HelpCircle } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import AvatarUpload from "@/components/AvatarUpload";
 
 export default function SettingsPage() {
   const [darkMode, setDarkMode] = useState(true);
-  const { signOut, role, setRole } = useAuth();
+  const { signOut, role, setRole, replayOnboarding } = useAuth();
+  const navigate = useNavigate();
+
+  const handleReplayOnboarding = async () => {
+    await replayOnboarding();
+    navigate("/");
+  };
 
   const toggleDark = () => {
     setDarkMode(!darkMode);
@@ -59,6 +66,24 @@ export default function SettingsPage() {
               <div className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-primary-foreground transition-transform ${darkMode ? "left-4" : "left-0.5"}`} />
             </div>
           </button>
+        </section>
+
+        {/* Help */}
+        <section className="rounded-lg border bg-card p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <HelpCircle size={14} className="text-primary" />
+            <h2 className="text-sm font-medium">Help</h2>
+          </div>
+          <button
+            onClick={handleReplayOnboarding}
+            className="flex items-center gap-2 px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors"
+          >
+            <Sparkles size={14} />
+            Replay onboarding
+          </button>
+          <p className="text-xs text-muted-foreground mt-2">
+            See the welcome walkthrough again.
+          </p>
         </section>
 
         {/* Account */}

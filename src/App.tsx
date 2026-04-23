@@ -41,7 +41,9 @@ function CatchAllRedirect() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading, onboardingCompleted, completeOnboarding } = useAuth();
-  if (loading) return (
+  // Wait for both session AND profile (onboardingCompleted !== null) before deciding,
+  // otherwise the intro flickers open while the profile row is still loading.
+  if (loading || (session && onboardingCompleted === null)) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4 animate-fade-in">
         <div className="relative h-10 w-10">
@@ -53,7 +55,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     </div>
   );
   if (!session) return <Navigate to="/auth" replace />;
-  if (!onboardingCompleted) return <Onboarding onComplete={completeOnboarding} />;
+  if (onboardingCompleted === false) return <Onboarding onComplete={completeOnboarding} />;
   return <>{children}</>;
 }
 
