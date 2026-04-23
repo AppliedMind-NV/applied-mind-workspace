@@ -553,18 +553,17 @@ export default function Notes() {
     >
       <button
         onClick={() => selectNote(note)}
-        className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
+        title={note.title}
+        aria-current={selectedNote === note.id ? "page" : undefined}
+        className={`w-full text-left pl-3 pr-7 py-1.5 rounded-lg transition-all ${
           selectedNote === note.id
             ? "bg-primary/10 text-foreground border border-primary/15"
             : "hover:bg-accent/30 text-foreground border border-transparent"
         }`}
       >
-        <div className="flex items-start gap-2">
-          <FileText size={13} className="text-muted-foreground mt-0.5 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate">{note.title}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{formatTime(note.updated_at)}</p>
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText size={13} className="text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate min-w-0 flex-1">{note.title}</span>
         </div>
       </button>
       <DropdownMenu>
