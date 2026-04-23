@@ -141,6 +141,20 @@ export default function Notes() {
     }
   }, [editingFolderId]);
 
+  // Auto-expand the parent folder of the active note so users can see where it lives.
+  // Runs only when the selected note or its folder changes — never auto-expands siblings.
+  useEffect(() => {
+    if (!selectedNote) return;
+    const note = notes.find((n) => n.id === selectedNote);
+    if (!note?.folder_id) return;
+    setExpandedFolders((prev) => {
+      if (prev.has(note.folder_id!)) return prev;
+      const next = new Set(prev);
+      next.add(note.folder_id!);
+      return next;
+    });
+  }, [selectedNote, notes]);
+
   // Safely normalize content for the editor
   const migrateContent = (raw: any): any => {
     if (!raw) return { type: "doc", content: [] };
