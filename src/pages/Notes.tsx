@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,7 +114,7 @@ export default function Notes() {
         }
         if (foldersRes.data) {
           setFolders(foldersRes.data as Folder[]);
-          setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
+          // Folders start collapsed by default; only the active note's parent will auto-expand (see effect below).
         }
         if (notesRes.data) {
           setNotes(notesRes.data as Note[]);
