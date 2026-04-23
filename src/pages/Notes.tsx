@@ -669,7 +669,7 @@ export default function Notes() {
         <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
           {/* Folders */}
           {folders.filter(folderMatchesSearch).map((folder) => {
-            const isExpanded = expandedFolders.has(folder.id);
+            const isExpanded = effectiveExpanded.has(folder.id);
             const folderNotes = notesInFolder(folder.id).filter(matchesSearch);
             const isEditing = editingFolderId === folder.id;
 
@@ -687,6 +687,8 @@ export default function Notes() {
               >
                   <button
                     onClick={() => toggleFolder(folder.id)}
+                    aria-expanded={isExpanded}
+                    title={folder.name}
                     className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
                   >
                     {isExpanded ? (
@@ -713,9 +715,9 @@ export default function Notes() {
                         className="text-xs font-medium bg-transparent outline-none border-b border-primary flex-1 min-w-0"
                       />
                     ) : (
-                      <span className="text-xs font-medium truncate">{folder.name}</span>
+                      <span className="text-xs font-medium truncate min-w-0 flex-1">{folder.name}</span>
                     )}
-                    <span className="text-[10px] text-muted-foreground ml-auto tabular-nums shrink-0">
+                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
                       {notesInFolder(folder.id).length}
                     </span>
                   </button>
