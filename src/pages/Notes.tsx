@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,7 +114,7 @@ export default function Notes() {
         }
         if (foldersRes.data) {
           setFolders(foldersRes.data as Folder[]);
-          setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
+          // Folders start collapsed by default; only the active note's parent will auto-expand (see effect below).
         }
         if (notesRes.data) {
           setNotes(notesRes.data as Note[]);
@@ -140,6 +140,20 @@ export default function Notes() {
       renameInputRef.current.select();
     }
   }, [editingFolderId]);
+
+  // Auto-expand the parent folder of the active note so users can see where it lives.
+  // Runs only when the selected note or its folder changes — never auto-expands siblings.
+  useEffect(() => {
+    if (!selectedNote) return;
+    const note = notes.find((n) => n.id === selectedNote);
+    if (!note?.folder_id) return;
+    setExpandedFolders((prev) => {
+      if (prev.has(note.folder_id!)) return prev;
+      const next = new Set(prev);
+      next.add(note.folder_id!);
+      return next;
+    });
+  }, [selectedNote, notes]);
 
   // Safely normalize content for the editor
   const migrateContent = (raw: any): any => {
@@ -404,6 +418,18 @@ export default function Notes() {
     return notesInFolder(folder.id).some(matchesSearch);
   };
 
+  // While searching, transiently expand any folder containing matches so results are visible,
+  // without mutating the user's explicit collapse/expand state.
+  const effectiveExpanded = useMemo(() => {
+    if (!search) return expandedFolders;
+    const next = new Set(expandedFolders);
+    for (const folder of folders) {
+      if (notesInFolder(folder.id).some(matchesSearch)) next.add(folder.id);
+    }
+    return next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedFolders, search, folders, notes]);
+
   const formatTime = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60000);
@@ -527,18 +553,17 @@ export default function Notes() {
     >
       <button
         onClick={() => selectNote(note)}
-        className={`w-full text-left px-3 py-2 rounded-lg transition-all ${
+        title={note.title}
+        aria-current={selectedNote === note.id ? "page" : undefined}
+        className={`w-full text-left pl-3 pr-7 py-1.5 rounded-lg transition-all ${
           selectedNote === note.id
             ? "bg-primary/10 text-foreground border border-primary/15"
             : "hover:bg-accent/30 text-foreground border border-transparent"
         }`}
       >
-        <div className="flex items-start gap-2">
-          <FileText size={13} className="text-muted-foreground mt-0.5 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate">{note.title}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{formatTime(note.updated_at)}</p>
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText size={13} className="text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate min-w-0 flex-1">{note.title}</span>
         </div>
       </button>
       <DropdownMenu>
@@ -644,7 +669,7 @@ export default function Notes() {
         <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
           {/* Folders */}
           {folders.filter(folderMatchesSearch).map((folder) => {
-            const isExpanded = expandedFolders.has(folder.id);
+            const isExpanded = effectiveExpanded.has(folder.id);
             const folderNotes = notesInFolder(folder.id).filter(matchesSearch);
             const isEditing = editingFolderId === folder.id;
 
@@ -662,6 +687,8 @@ export default function Notes() {
               >
                   <button
                     onClick={() => toggleFolder(folder.id)}
+                    aria-expanded={isExpanded}
+                    title={folder.name}
                     className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
                   >
                     {isExpanded ? (
@@ -688,9 +715,9 @@ export default function Notes() {
                         className="text-xs font-medium bg-transparent outline-none border-b border-primary flex-1 min-w-0"
                       />
                     ) : (
-                      <span className="text-xs font-medium truncate">{folder.name}</span>
+                      <span className="text-xs font-medium truncate min-w-0 flex-1">{folder.name}</span>
                     )}
-                    <span className="text-[10px] text-muted-foreground ml-auto tabular-nums shrink-0">
+                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
                       {notesInFolder(folder.id).length}
                     </span>
                   </button>
