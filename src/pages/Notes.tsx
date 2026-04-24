@@ -18,6 +18,8 @@ import {
   Code2,
   ExternalLink,
   Mic,
+  GraduationCap,
+  BookOpen,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
