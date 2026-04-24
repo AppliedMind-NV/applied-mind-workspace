@@ -1220,6 +1220,32 @@ export default function Notes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Subject Confirmation */}
+      <AlertDialog open={!!pendingDeleteSubject} onOpenChange={(open) => !open && setPendingDeleteSubject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete subject?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingDeleteSubject?.name}" will be permanently deleted.
+              {pendingDeleteSubject?.folderCount ? ` ${pendingDeleteSubject.folderCount} folder${pendingDeleteSubject.folderCount > 1 ? "s" : ""} inside will be kept and moved to "Other folders".` : ""}
+              {" "}This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDeleteSubject) deleteSubject(pendingDeleteSubject.id);
+                setPendingDeleteSubject(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
