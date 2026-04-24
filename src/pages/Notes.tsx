@@ -107,18 +107,23 @@ export default function Notes() {
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<{ id: string; name: string; noteCount: number } | null>(null);
   const [pendingDeleteSubject, setPendingDeleteSubject] = useState<{ id: string; name: string; folderCount: number } | null>(null);
 
-  // Fetch folders and notes
+  // Fetch subjects, folders, and notes
   useEffect(() => {
     if (!user) return;
     const fetchAll = async () => {
       try {
-        const [foldersRes, notesRes] = await Promise.all([
-          supabase.from("folders").select("id, name, created_at").order("name"),
+        const [subjectsRes, foldersRes, notesRes] = await Promise.all([
+          supabase.from("subjects").select("id, name, created_at").order("name"),
+          supabase.from("folders").select("id, name, subject_id, created_at").order("name"),
           supabase
             .from("notes")
             .select("id, title, content, updated_at, folder_id")
             .order("updated_at", { ascending: false }),
         ]);
+        if (subjectsRes.error) {
+          console.error("Failed to load subjects:", subjectsRes.error);
+          toast({ title: "Failed to load subjects", description: subjectsRes.error.message, variant: "destructive" });
+        }
         if (foldersRes.error) {
           console.error("Failed to load folders:", foldersRes.error);
           toast({ title: "Failed to load folders", description: foldersRes.error.message, variant: "destructive" });
@@ -127,10 +132,8 @@ export default function Notes() {
           console.error("Failed to load notes:", notesRes.error);
           toast({ title: "Failed to load notes", description: notesRes.error.message, variant: "destructive" });
         }
-        if (foldersRes.data) {
-          setFolders(foldersRes.data as Folder[]);
-          // Folders start collapsed by default; only the active note's parent will auto-expand (see effect below).
-        }
+        if (subjectsRes.data) setSubjects(subjectsRes.data as Subject[]);
+        if (foldersRes.data) setFolders(foldersRes.data as Folder[]);
         if (notesRes.data) {
           setNotes(notesRes.data as Note[]);
           if (!selectedNote && notesRes.data.length > 0) {
@@ -148,7 +151,7 @@ export default function Notes() {
     fetchAll();
   }, [user]);
 
-  // Focus rename input
+  // Focus rename inputs
   useEffect(() => {
     if (editingFolderId && renameInputRef.current) {
       renameInputRef.current.focus();
@@ -156,8 +159,14 @@ export default function Notes() {
     }
   }, [editingFolderId]);
 
-  // Auto-expand the parent folder of the active note so users can see where it lives.
-  // Runs only when the selected note or its folder changes — never auto-expands siblings.
+  useEffect(() => {
+    if (editingSubjectId && subjectRenameInputRef.current) {
+      subjectRenameInputRef.current.focus();
+      subjectRenameInputRef.current.select();
+    }
+  }, [editingSubjectId]);
+
+  // Auto-expand the parent folder AND subject of the active note so users can see where it lives.
   useEffect(() => {
     if (!selectedNote) return;
     const note = notes.find((n) => n.id === selectedNote);
@@ -168,7 +177,16 @@ export default function Notes() {
       next.add(note.folder_id!);
       return next;
     });
-  }, [selectedNote, notes]);
+    const folder = folders.find((f) => f.id === note.folder_id);
+    if (folder?.subject_id) {
+      setExpandedSubjects((prev) => {
+        if (prev.has(folder.subject_id!)) return prev;
+        const next = new Set(prev);
+        next.add(folder.subject_id!);
+        return next;
+      });
+    }
+  }, [selectedNote, notes, folders]);
 
   // Safely normalize content for the editor
   const migrateContent = (raw: any): any => {
