@@ -18,6 +18,8 @@ import {
   Code2,
   ExternalLink,
   Mic,
+  GraduationCap,
+  BookOpen,
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
@@ -51,9 +53,16 @@ import {
 import { LectureUpload } from "@/components/LectureUpload";
 import { LectureRecorder } from "@/components/LectureRecorder";
 
+interface Subject {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
 interface Folder {
   id: string;
   name: string;
+  subject_id: string | null;
   created_at: string;
 }
 
@@ -70,6 +79,7 @@ export default function Notes() {
   const navigate = useNavigate();
   const { setActiveNote, setSelectedText } = useNoteContext();
   const [linkedProjects, setLinkedProjects] = useState<{ id: string; title: string; language: string }[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
@@ -80,7 +90,10 @@ export default function Notes() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<{ noteId: string; title: string; content: any } | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [editingSubjectName, setEditingSubjectName] = useState("");
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
@@ -89,21 +102,28 @@ export default function Notes() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const subjectRenameInputRef = useRef<HTMLInputElement>(null);
   const [pendingDeleteNote, setPendingDeleteNote] = useState<{ id: string; title: string } | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<{ id: string; name: string; noteCount: number } | null>(null);
+  const [pendingDeleteSubject, setPendingDeleteSubject] = useState<{ id: string; name: string; folderCount: number } | null>(null);
 
-  // Fetch folders and notes
+  // Fetch subjects, folders, and notes
   useEffect(() => {
     if (!user) return;
     const fetchAll = async () => {
       try {
-        const [foldersRes, notesRes] = await Promise.all([
-          supabase.from("folders").select("id, name, created_at").order("name"),
+        const [subjectsRes, foldersRes, notesRes] = await Promise.all([
+          supabase.from("subjects").select("id, name, created_at").order("name"),
+          supabase.from("folders").select("id, name, subject_id, created_at").order("name"),
           supabase
             .from("notes")
             .select("id, title, content, updated_at, folder_id")
             .order("updated_at", { ascending: false }),
         ]);
+        if (subjectsRes.error) {
+          console.error("Failed to load subjects:", subjectsRes.error);
+          toast({ title: "Failed to load subjects", description: subjectsRes.error.message, variant: "destructive" });
+        }
         if (foldersRes.error) {
           console.error("Failed to load folders:", foldersRes.error);
           toast({ title: "Failed to load folders", description: foldersRes.error.message, variant: "destructive" });
@@ -112,10 +132,8 @@ export default function Notes() {
           console.error("Failed to load notes:", notesRes.error);
           toast({ title: "Failed to load notes", description: notesRes.error.message, variant: "destructive" });
         }
-        if (foldersRes.data) {
-          setFolders(foldersRes.data as Folder[]);
-          // Folders start collapsed by default; only the active note's parent will auto-expand (see effect below).
-        }
+        if (subjectsRes.data) setSubjects(subjectsRes.data as Subject[]);
+        if (foldersRes.data) setFolders(foldersRes.data as Folder[]);
         if (notesRes.data) {
           setNotes(notesRes.data as Note[]);
           if (!selectedNote && notesRes.data.length > 0) {
@@ -133,7 +151,7 @@ export default function Notes() {
     fetchAll();
   }, [user]);
 
-  // Focus rename input
+  // Focus rename inputs
   useEffect(() => {
     if (editingFolderId && renameInputRef.current) {
       renameInputRef.current.focus();
@@ -141,8 +159,14 @@ export default function Notes() {
     }
   }, [editingFolderId]);
 
-  // Auto-expand the parent folder of the active note so users can see where it lives.
-  // Runs only when the selected note or its folder changes — never auto-expands siblings.
+  useEffect(() => {
+    if (editingSubjectId && subjectRenameInputRef.current) {
+      subjectRenameInputRef.current.focus();
+      subjectRenameInputRef.current.select();
+    }
+  }, [editingSubjectId]);
+
+  // Auto-expand the parent folder AND subject of the active note so users can see where it lives.
   useEffect(() => {
     if (!selectedNote) return;
     const note = notes.find((n) => n.id === selectedNote);
@@ -153,7 +177,16 @@ export default function Notes() {
       next.add(note.folder_id!);
       return next;
     });
-  }, [selectedNote, notes]);
+    const folder = folders.find((f) => f.id === note.folder_id);
+    if (folder?.subject_id) {
+      setExpandedSubjects((prev) => {
+        if (prev.has(folder.subject_id!)) return prev;
+        const next = new Set(prev);
+        next.add(folder.subject_id!);
+        return next;
+      });
+    }
+  }, [selectedNote, notes, folders]);
 
   // Safely normalize content for the editor
   const migrateContent = (raw: any): any => {
@@ -298,17 +331,79 @@ export default function Notes() {
     }
   };
 
+  // Subject CRUD
+  const createSubject = async () => {
+    if (!user) {
+      toast({ title: "Please sign in", description: "You must be logged in to create a subject.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("subjects")
+        .insert({ user_id: user.id, name: "New Subject" })
+        .select("id, name, created_at")
+        .single();
+      if (error) {
+        toast({ title: "Failed to create subject", description: error.message, variant: "destructive" });
+        return;
+      }
+      if (data) {
+        const subject = data as Subject;
+        setSubjects((prev) => [...prev, subject].sort((a, b) => a.name.localeCompare(b.name)));
+        setExpandedSubjects((prev) => new Set([...prev, subject.id]));
+        setEditingSubjectId(subject.id);
+        setEditingSubjectName(subject.name);
+        toast({ title: "Subject created" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Could not create subject", variant: "destructive" });
+    }
+  };
+
+  const renameSubject = async (id: string, name: string) => {
+    const trimmed = name.trim() || "Untitled Subject";
+    await supabase.from("subjects").update({ name: trimmed }).eq("id", id);
+    setSubjects((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, name: trimmed } : s)).sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setEditingSubjectId(null);
+  };
+
+  const deleteSubject = async (id: string) => {
+    // ON DELETE SET NULL: folders inside become orphaned (subject_id = null) and remain accessible.
+    await supabase.from("subjects").delete().eq("id", id);
+    setSubjects((prev) => prev.filter((s) => s.id !== id));
+    setFolders((prev) => prev.map((f) => (f.subject_id === id ? { ...f, subject_id: null } : f)));
+  };
+
+  const toggleSubject = (id: string) => {
+    setExpandedSubjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const moveFolder = async (folderId: string, subjectId: string | null) => {
+    await supabase.from("folders").update({ subject_id: subjectId }).eq("id", folderId);
+    setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, subject_id: subjectId } : f)));
+    if (subjectId) setExpandedSubjects((prev) => new Set([...prev, subjectId]));
+  };
+
   // Folder CRUD
-  const createFolder = async () => {
+  const createFolder = async (subjectId: string | null = null) => {
     if (!user) {
       toast({ title: "Please sign in", description: "You must be logged in to create a folder.", variant: "destructive" });
       return;
     }
     try {
+      const insert: any = { user_id: user.id, name: "New Folder" };
+      if (subjectId) insert.subject_id = subjectId;
       const { data, error } = await supabase
         .from("folders")
-        .insert({ user_id: user.id, name: "New Folder" })
-        .select("id, name, created_at")
+        .insert(insert)
+        .select("id, name, subject_id, created_at")
         .single();
       if (error) {
         console.error("Failed to create folder:", error);
@@ -319,6 +414,7 @@ export default function Notes() {
         const folder = data as Folder;
         setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
         setExpandedFolders((prev) => new Set([...prev, folder.id]));
+        if (subjectId) setExpandedSubjects((prev) => new Set([...prev, subjectId]));
         setEditingFolderId(folder.id);
         setEditingFolderName(folder.name);
         toast({ title: "Folder created" });
@@ -339,7 +435,7 @@ export default function Notes() {
   };
 
   const deleteFolder = async (id: string) => {
-    // Notes in folder get folder_id set to null (ON DELETE SET NULL)
+    // Notes in folder get folder_id set to null in local state (matches DB ON DELETE SET NULL semantics).
     await supabase.from("folders").delete().eq("id", id);
     setFolders((prev) => prev.filter((f) => f.id !== id));
     setNotes((prev) => prev.map((n) => (n.folder_id === id ? { ...n, folder_id: null } : n)));
@@ -408,6 +504,8 @@ export default function Notes() {
   // Derived data
   const uncategorizedNotes = notes.filter((n) => !n.folder_id);
   const notesInFolder = (folderId: string) => notes.filter((n) => n.folder_id === folderId);
+  const foldersInSubject = (subjectId: string | null) =>
+    folders.filter((f) => (f.subject_id ?? null) === subjectId);
 
   const matchesSearch = (note: Note) =>
     !search || note.title.toLowerCase().includes(search.toLowerCase());
@@ -418,9 +516,15 @@ export default function Notes() {
     return notesInFolder(folder.id).some(matchesSearch);
   };
 
-  // While searching, transiently expand any folder containing matches so results are visible,
+  const subjectMatchesSearch = (subject: Subject) => {
+    if (!search) return true;
+    if (subject.name.toLowerCase().includes(search.toLowerCase())) return true;
+    return foldersInSubject(subject.id).some(folderMatchesSearch);
+  };
+
+  // While searching, transiently expand subjects/folders containing matches so results are visible,
   // without mutating the user's explicit collapse/expand state.
-  const effectiveExpanded = useMemo(() => {
+  const effectiveExpandedFolders = useMemo(() => {
     if (!search) return expandedFolders;
     const next = new Set(expandedFolders);
     for (const folder of folders) {
@@ -429,6 +533,16 @@ export default function Notes() {
     return next;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedFolders, search, folders, notes]);
+
+  const effectiveExpandedSubjects = useMemo(() => {
+    if (!search) return expandedSubjects;
+    const next = new Set(expandedSubjects);
+    for (const subject of subjects) {
+      if (foldersInSubject(subject.id).some(folderMatchesSearch)) next.add(subject.id);
+    }
+    return next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSubjects, search, subjects, folders, notes]);
 
   const formatTime = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
@@ -647,11 +761,18 @@ export default function Notes() {
               <Mic size={13} />
             </button>
             <button
-              onClick={createFolder}
+              onClick={() => createFolder(null)}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="New Folder"
             >
               <FolderPlus size={13} />
+            </button>
+            <button
+              onClick={createSubject}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
+              title="New Subject"
+            >
+              <GraduationCap size={13} />
             </button>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/30">
@@ -667,156 +788,291 @@ export default function Notes() {
         </div>
 
         <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
-          {/* Folders */}
-          {folders.filter(folderMatchesSearch).map((folder) => {
-            const isExpanded = effectiveExpanded.has(folder.id);
-            const folderNotes = notesInFolder(folder.id).filter(matchesSearch);
-            const isEditing = editingFolderId === folder.id;
+          {(() => {
+            // Inline folder renderer used inside subjects and at root level (uncategorized folders).
+            const renderFolder = (folder: Folder, indent: boolean) => {
+              const isExpanded = effectiveExpandedFolders.has(folder.id);
+              const folderNotes = notesInFolder(folder.id).filter(matchesSearch);
+              const isEditing = editingFolderId === folder.id;
 
-            return (
-              <div key={folder.id}>
-              <div
-                className={`group flex items-center gap-1 rounded-md transition-colors pr-1 ${
-                  dropTargetId === folder.id
-                    ? "bg-primary/10 ring-1 ring-primary/30"
-                    : "hover:bg-accent/50"
-                }`}
-                onDragOver={(e) => handleDragOver(e, folder.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, folder.id)}
-              >
-                  <button
-                    onClick={() => toggleFolder(folder.id)}
-                    aria-expanded={isExpanded}
-                    title={folder.name}
-                    className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
+              return (
+                <div key={folder.id} className={indent ? "ml-4" : ""}>
+                  <div
+                    className={`group flex items-center gap-1 rounded-md transition-colors pr-1 ${
+                      dropTargetId === folder.id
+                        ? "bg-primary/10 ring-1 ring-primary/30"
+                        : "hover:bg-accent/50"
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, folder.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, folder.id)}
                   >
-                    {isExpanded ? (
-                      <ChevronDown size={12} className="text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronRight size={12} className="text-muted-foreground shrink-0" />
-                    )}
-                    {isExpanded ? (
-                      <FolderOpen size={14} className="text-primary shrink-0" />
-                    ) : (
-                      <FolderClosed size={14} className="text-muted-foreground shrink-0" />
-                    )}
-                    {isEditing ? (
-                      <input
-                        ref={renameInputRef}
-                        value={editingFolderName}
-                        onChange={(e) => setEditingFolderName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") renameFolder(folder.id, editingFolderName);
-                          if (e.key === "Escape") setEditingFolderId(null);
-                        }}
-                        onBlur={() => renameFolder(folder.id, editingFolderName)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-xs font-medium bg-transparent outline-none border-b border-primary flex-1 min-w-0"
-                      />
-                    ) : (
-                      <span className="text-xs font-medium truncate min-w-0 flex-1">{folder.name}</span>
-                    )}
-                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                      {notesInFolder(folder.id).length}
-                    </span>
-                  </button>
-
-                  {!isEditing && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent transition-opacity">
-                          <MoreHorizontal size={12} className="text-muted-foreground" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem
-                          className="text-xs"
-                          onClick={() => createNote(folder.id)}
-                        >
-                          <Plus size={12} className="mr-2" />
-                          New Note
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-xs"
-                          onClick={() => {
-                            setEditingFolderId(folder.id);
-                            setEditingFolderName(folder.name);
+                    <button
+                      onClick={() => toggleFolder(folder.id)}
+                      aria-expanded={isExpanded}
+                      title={folder.name}
+                      className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight size={12} className="text-muted-foreground shrink-0" />
+                      )}
+                      {isExpanded ? (
+                        <FolderOpen size={14} className="text-primary shrink-0" />
+                      ) : (
+                        <FolderClosed size={14} className="text-muted-foreground shrink-0" />
+                      )}
+                      {isEditing ? (
+                        <input
+                          ref={renameInputRef}
+                          value={editingFolderName}
+                          onChange={(e) => setEditingFolderName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") renameFolder(folder.id, editingFolderName);
+                            if (e.key === "Escape") setEditingFolderId(null);
                           }}
-                        >
-                          <Pencil size={12} className="mr-2" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-xs"
-                          disabled={generatingFolderId === folder.id}
-                          onClick={() => generateFolderFlashcards(folder.id)}
-                        >
-                          {generatingFolderId === folder.id ? (
-                            <Loader2 size={12} className="mr-2 animate-spin" />
-                          ) : (
-                            <Sparkles size={12} className="mr-2" />
-                          )}
-                          {generatingFolderId === folder.id ? "Generating…" : "Generate Flashcards"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-xs text-destructive"
-                          onClick={() => setPendingDeleteFolder({ id: folder.id, name: folder.name, noteCount: notesInFolder(folder.id).length })}
-                        >
-                          <Trash2 size={12} className="mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
+                          onBlur={() => renameFolder(folder.id, editingFolderName)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs font-medium bg-transparent outline-none border-b border-primary flex-1 min-w-0"
+                        />
+                      ) : (
+                        <span className="text-xs font-medium truncate min-w-0 flex-1">{folder.name}</span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                        {notesInFolder(folder.id).length}
+                      </span>
+                    </button>
 
-                {/* Notes in folder */}
-                {isExpanded && (
-                  <div className="ml-5 mt-0.5 space-y-0.5">
-                    {folderNotes.map((note) => (
-                      <NoteItem key={note.id} note={note} />
-                    ))}
-                    {folderNotes.length === 0 && !search && (
-                      <p className="text-[10px] text-muted-foreground px-3 py-1.5">Empty folder</p>
+                    {!isEditing && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent transition-opacity">
+                            <MoreHorizontal size={12} className="text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem
+                            className="text-xs"
+                            onClick={() => createNote(folder.id)}
+                          >
+                            <Plus size={12} className="mr-2" />
+                            New Note
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-xs"
+                            onClick={() => {
+                              setEditingFolderId(folder.id);
+                              setEditingFolderName(folder.name);
+                            }}
+                          >
+                            <Pencil size={12} className="mr-2" />
+                            Rename
+                          </DropdownMenuItem>
+                          {subjects.length > 0 && (
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="text-xs">
+                                <ArrowRightLeft size={12} className="mr-2" />
+                                Move to subject…
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-40">
+                                {folder.subject_id && (
+                                  <DropdownMenuItem className="text-xs" onClick={() => moveFolder(folder.id, null)}>
+                                    No subject
+                                  </DropdownMenuItem>
+                                )}
+                                {subjects
+                                  .filter((s) => s.id !== folder.subject_id)
+                                  .map((s) => (
+                                    <DropdownMenuItem key={s.id} className="text-xs" onClick={() => moveFolder(folder.id, s.id)}>
+                                      {s.name}
+                                    </DropdownMenuItem>
+                                  ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          )}
+                          <DropdownMenuItem
+                            className="text-xs"
+                            disabled={generatingFolderId === folder.id}
+                            onClick={() => generateFolderFlashcards(folder.id)}
+                          >
+                            {generatingFolderId === folder.id ? (
+                              <Loader2 size={12} className="mr-2 animate-spin" />
+                            ) : (
+                              <Sparkles size={12} className="mr-2" />
+                            )}
+                            {generatingFolderId === folder.id ? "Generating…" : "Generate Flashcards"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-xs text-destructive"
+                            onClick={() => setPendingDeleteFolder({ id: folder.id, name: folder.name, noteCount: notesInFolder(folder.id).length })}
+                          >
+                            <Trash2 size={12} className="mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
+
+                  {/* Notes in folder */}
+                  {isExpanded && (
+                    <div className="ml-5 mt-0.5 space-y-0.5">
+                      {folderNotes.map((note) => (
+                        <NoteItem key={note.id} note={note} />
+                      ))}
+                      {folderNotes.length === 0 && !search && (
+                        <p className="text-[10px] text-muted-foreground px-3 py-1.5">Empty folder</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <>
+                {/* Subjects (each contains its folders) */}
+                {subjects.filter(subjectMatchesSearch).map((subject) => {
+                  const isSubjectExpanded = effectiveExpandedSubjects.has(subject.id);
+                  const subjectFolders = foldersInSubject(subject.id).filter(folderMatchesSearch);
+                  const isEditingSubject = editingSubjectId === subject.id;
+
+                  return (
+                    <div key={subject.id}>
+                      <div className="group flex items-center gap-1 rounded-md transition-colors pr-1 hover:bg-accent/50">
+                        <button
+                          onClick={() => toggleSubject(subject.id)}
+                          aria-expanded={isSubjectExpanded}
+                          title={subject.name}
+                          className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
+                        >
+                          {isSubjectExpanded ? (
+                            <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronRight size={12} className="text-muted-foreground shrink-0" />
+                          )}
+                          <BookOpen size={14} className="text-primary shrink-0" />
+                          {isEditingSubject ? (
+                            <input
+                              ref={subjectRenameInputRef}
+                              value={editingSubjectName}
+                              onChange={(e) => setEditingSubjectName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") renameSubject(subject.id, editingSubjectName);
+                                if (e.key === "Escape") setEditingSubjectId(null);
+                              }}
+                              onBlur={() => renameSubject(subject.id, editingSubjectName)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs font-semibold bg-transparent outline-none border-b border-primary flex-1 min-w-0"
+                            />
+                          ) : (
+                            <span className="text-xs font-semibold truncate min-w-0 flex-1 uppercase tracking-wide">
+                              {subject.name}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                            {foldersInSubject(subject.id).length}
+                          </span>
+                        </button>
+
+                        {!isEditingSubject && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent transition-opacity">
+                                <MoreHorizontal size={12} className="text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem
+                                className="text-xs"
+                                onClick={() => createFolder(subject.id)}
+                              >
+                                <FolderPlus size={12} className="mr-2" />
+                                New Folder
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-xs"
+                                onClick={() => {
+                                  setEditingSubjectId(subject.id);
+                                  setEditingSubjectName(subject.name);
+                                }}
+                              >
+                                <Pencil size={12} className="mr-2" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-xs text-destructive"
+                                onClick={() => setPendingDeleteSubject({ id: subject.id, name: subject.name, folderCount: foldersInSubject(subject.id).length })}
+                              >
+                                <Trash2 size={12} className="mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+
+                      {isSubjectExpanded && (
+                        <div className="mt-0.5 space-y-0.5">
+                          {subjectFolders.map((folder) => renderFolder(folder, true))}
+                          {subjectFolders.length === 0 && !search && (
+                            <p className="text-[10px] text-muted-foreground px-3 py-1.5 ml-4">No folders yet</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Folders without a subject (orphans / pre-migration) */}
+                {foldersInSubject(null).filter(folderMatchesSearch).length > 0 && (
+                  <div className="mt-2">
+                    {subjects.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-2 py-1 font-medium">
+                        Other folders
+                      </p>
+                    )}
+                    <div className="space-y-0.5">
+                      {foldersInSubject(null).filter(folderMatchesSearch).map((folder) => renderFolder(folder, false))}
+                    </div>
+                  </div>
                 )}
-              </div>
+
+                {/* Uncategorized notes */}
+                {uncategorizedNotes.filter(matchesSearch).length > 0 && (
+                  <div
+                    className={`mt-2 rounded-md transition-colors ${
+                      dropTargetId === "uncategorized"
+                        ? "bg-primary/10 ring-1 ring-primary/30"
+                        : ""
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, "uncategorized")}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, null)}
+                  >
+                    {folders.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-2 py-1 font-medium">
+                        Uncategorized
+                      </p>
+                    )}
+                    <div className="space-y-0.5">
+                      {uncategorizedNotes.filter(matchesSearch).map((note) => (
+                        <NoteItem key={note.id} note={note} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {subjects.length === 0 && folders.length === 0 && notes.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-8">
+                    Create a subject, folder, or note to get started
+                  </p>
+                )}
+              </>
             );
-          })}
-
-          {/* Uncategorized notes */}
-          {uncategorizedNotes.filter(matchesSearch).length > 0 && (
-            <div
-              className={`mt-2 rounded-md transition-colors ${
-                dropTargetId === "uncategorized"
-                  ? "bg-primary/10 ring-1 ring-primary/30"
-                  : ""
-              }`}
-              onDragOver={(e) => handleDragOver(e, "uncategorized")}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, null)}
-            >
-              {folders.length > 0 && (
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-2 py-1 font-medium">
-                  Uncategorized
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {uncategorizedNotes.filter(matchesSearch).map((note) => (
-                  <NoteItem key={note.id} note={note} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {folders.length === 0 && notes.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">
-              Create a folder or note to get started
-            </p>
-          )}
+          })()}
         </div>
       </div>
 
@@ -957,6 +1213,32 @@ export default function Notes() {
               onClick={() => {
                 if (pendingDeleteFolder) deleteFolder(pendingDeleteFolder.id);
                 setPendingDeleteFolder(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Subject Confirmation */}
+      <AlertDialog open={!!pendingDeleteSubject} onOpenChange={(open) => !open && setPendingDeleteSubject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete subject?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{pendingDeleteSubject?.name}" will be permanently deleted.
+              {pendingDeleteSubject?.folderCount ? ` ${pendingDeleteSubject.folderCount} folder${pendingDeleteSubject.folderCount > 1 ? "s" : ""} inside will be kept and moved to "Other folders".` : ""}
+              {" "}This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (pendingDeleteSubject) deleteSubject(pendingDeleteSubject.id);
+                setPendingDeleteSubject(null);
               }}
             >
               Delete

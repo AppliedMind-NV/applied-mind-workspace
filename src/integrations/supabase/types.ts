@@ -242,21 +242,32 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          subject_id: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           name?: string
+          subject_id?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          subject_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "folders_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notes: {
         Row: {
@@ -378,6 +389,27 @@ export type Database = {
           ended_at?: string | null
           id?: string
           started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
           user_id?: string
         }
         Relationships: []
