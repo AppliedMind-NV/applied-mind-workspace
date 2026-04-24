@@ -761,11 +761,18 @@ export default function Notes() {
               <Mic size={13} />
             </button>
             <button
-              onClick={createFolder}
+              onClick={() => createFolder(null)}
               className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="New Folder"
             >
               <FolderPlus size={13} />
+            </button>
+            <button
+              onClick={createSubject}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
+              title="New Subject"
+            >
+              <GraduationCap size={13} />
             </button>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/30">
