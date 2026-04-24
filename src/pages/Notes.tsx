@@ -331,17 +331,79 @@ export default function Notes() {
     }
   };
 
+  // Subject CRUD
+  const createSubject = async () => {
+    if (!user) {
+      toast({ title: "Please sign in", description: "You must be logged in to create a subject.", variant: "destructive" });
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("subjects")
+        .insert({ user_id: user.id, name: "New Subject" })
+        .select("id, name, created_at")
+        .single();
+      if (error) {
+        toast({ title: "Failed to create subject", description: error.message, variant: "destructive" });
+        return;
+      }
+      if (data) {
+        const subject = data as Subject;
+        setSubjects((prev) => [...prev, subject].sort((a, b) => a.name.localeCompare(b.name)));
+        setExpandedSubjects((prev) => new Set([...prev, subject.id]));
+        setEditingSubjectId(subject.id);
+        setEditingSubjectName(subject.name);
+        toast({ title: "Subject created" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Could not create subject", variant: "destructive" });
+    }
+  };
+
+  const renameSubject = async (id: string, name: string) => {
+    const trimmed = name.trim() || "Untitled Subject";
+    await supabase.from("subjects").update({ name: trimmed }).eq("id", id);
+    setSubjects((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, name: trimmed } : s)).sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setEditingSubjectId(null);
+  };
+
+  const deleteSubject = async (id: string) => {
+    // ON DELETE SET NULL: folders inside become orphaned (subject_id = null) and remain accessible.
+    await supabase.from("subjects").delete().eq("id", id);
+    setSubjects((prev) => prev.filter((s) => s.id !== id));
+    setFolders((prev) => prev.map((f) => (f.subject_id === id ? { ...f, subject_id: null } : f)));
+  };
+
+  const toggleSubject = (id: string) => {
+    setExpandedSubjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const moveFolder = async (folderId: string, subjectId: string | null) => {
+    await supabase.from("folders").update({ subject_id: subjectId }).eq("id", folderId);
+    setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, subject_id: subjectId } : f)));
+    if (subjectId) setExpandedSubjects((prev) => new Set([...prev, subjectId]));
+  };
+
   // Folder CRUD
-  const createFolder = async () => {
+  const createFolder = async (subjectId: string | null = null) => {
     if (!user) {
       toast({ title: "Please sign in", description: "You must be logged in to create a folder.", variant: "destructive" });
       return;
     }
     try {
+      const insert: any = { user_id: user.id, name: "New Folder" };
+      if (subjectId) insert.subject_id = subjectId;
       const { data, error } = await supabase
         .from("folders")
-        .insert({ user_id: user.id, name: "New Folder" })
-        .select("id, name, created_at")
+        .insert(insert)
+        .select("id, name, subject_id, created_at")
         .single();
       if (error) {
         console.error("Failed to create folder:", error);
@@ -352,6 +414,7 @@ export default function Notes() {
         const folder = data as Folder;
         setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
         setExpandedFolders((prev) => new Set([...prev, folder.id]));
+        if (subjectId) setExpandedSubjects((prev) => new Set([...prev, subjectId]));
         setEditingFolderId(folder.id);
         setEditingFolderName(folder.name);
         toast({ title: "Folder created" });
@@ -372,7 +435,7 @@ export default function Notes() {
   };
 
   const deleteFolder = async (id: string) => {
-    // Notes in folder get folder_id set to null (ON DELETE SET NULL)
+    // Notes in folder get folder_id set to null in local state (matches DB ON DELETE SET NULL semantics).
     await supabase.from("folders").delete().eq("id", id);
     setFolders((prev) => prev.filter((f) => f.id !== id));
     setNotes((prev) => prev.map((n) => (n.folder_id === id ? { ...n, folder_id: null } : n)));
