@@ -53,9 +53,16 @@ import {
 import { LectureUpload } from "@/components/LectureUpload";
 import { LectureRecorder } from "@/components/LectureRecorder";
 
+interface Subject {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
 interface Folder {
   id: string;
   name: string;
+  subject_id: string | null;
   created_at: string;
 }
 
@@ -72,6 +79,7 @@ export default function Notes() {
   const navigate = useNavigate();
   const { setActiveNote, setSelectedText } = useNoteContext();
   const [linkedProjects, setLinkedProjects] = useState<{ id: string; title: string; language: string }[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
@@ -82,7 +90,10 @@ export default function Notes() {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<{ noteId: string; title: string; content: any } | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [editingSubjectName, setEditingSubjectName] = useState("");
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState("");
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
@@ -91,8 +102,10 @@ export default function Notes() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const subjectRenameInputRef = useRef<HTMLInputElement>(null);
   const [pendingDeleteNote, setPendingDeleteNote] = useState<{ id: string; title: string } | null>(null);
   const [pendingDeleteFolder, setPendingDeleteFolder] = useState<{ id: string; name: string; noteCount: number } | null>(null);
+  const [pendingDeleteSubject, setPendingDeleteSubject] = useState<{ id: string; name: string; folderCount: number } | null>(null);
 
   // Fetch folders and notes
   useEffect(() => {
