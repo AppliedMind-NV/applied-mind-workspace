@@ -504,6 +504,8 @@ export default function Notes() {
   // Derived data
   const uncategorizedNotes = notes.filter((n) => !n.folder_id);
   const notesInFolder = (folderId: string) => notes.filter((n) => n.folder_id === folderId);
+  const foldersInSubject = (subjectId: string | null) =>
+    folders.filter((f) => (f.subject_id ?? null) === subjectId);
 
   const matchesSearch = (note: Note) =>
     !search || note.title.toLowerCase().includes(search.toLowerCase());
@@ -514,9 +516,15 @@ export default function Notes() {
     return notesInFolder(folder.id).some(matchesSearch);
   };
 
-  // While searching, transiently expand any folder containing matches so results are visible,
+  const subjectMatchesSearch = (subject: Subject) => {
+    if (!search) return true;
+    if (subject.name.toLowerCase().includes(search.toLowerCase())) return true;
+    return foldersInSubject(subject.id).some(folderMatchesSearch);
+  };
+
+  // While searching, transiently expand subjects/folders containing matches so results are visible,
   // without mutating the user's explicit collapse/expand state.
-  const effectiveExpanded = useMemo(() => {
+  const effectiveExpandedFolders = useMemo(() => {
     if (!search) return expandedFolders;
     const next = new Set(expandedFolders);
     for (const folder of folders) {
@@ -525,6 +533,16 @@ export default function Notes() {
     return next;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expandedFolders, search, folders, notes]);
+
+  const effectiveExpandedSubjects = useMemo(() => {
+    if (!search) return expandedSubjects;
+    const next = new Set(expandedSubjects);
+    for (const subject of subjects) {
+      if (foldersInSubject(subject.id).some(folderMatchesSearch)) next.add(subject.id);
+    }
+    return next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSubjects, search, subjects, folders, notes]);
 
   const formatTime = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
