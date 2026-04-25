@@ -33,17 +33,17 @@ const Navbar = ({ onSignIn, onGetStarted }: NavbarProps) => {
             </Link>
           )}
           {onGetStarted ? (
-            <Button variant="hero" size="sm" className="gap-1.5" onClick={onGetStarted}>
+            <Button variant="hero" size="sm" className="gap-1.5 px-3 sm:px-4" onClick={onGetStarted}>
               <Sparkles className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline sm:inline">Get Started</span>
-              <span className="xs:hidden sm:hidden">Start</span>
+              <span className="hidden sm:inline">Get Started</span>
+              <span className="sm:hidden">Start</span>
             </Button>
           ) : (
             <Link to="/auth">
-              <Button variant="hero" size="sm" className="gap-1.5">
+              <Button variant="hero" size="sm" className="gap-1.5 px-3 sm:px-4">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline sm:inline">Get Started</span>
-                <span className="xs:hidden sm:hidden">Start</span>
+                <span className="hidden sm:inline">Get Started</span>
+                <span className="sm:hidden">Start</span>
               </Button>
             </Link>
           )}
