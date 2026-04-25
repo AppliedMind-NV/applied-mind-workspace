@@ -1,18 +1,11 @@
-import { User, Moon, Sun, Shield, LogOut, Sparkles, HelpCircle } from "lucide-react";
+import { User, Moon, Sun, Shield, LogOut } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import AvatarUpload from "@/components/AvatarUpload";
 
 export default function SettingsPage() {
   const [darkMode, setDarkMode] = useState(true);
-  const { signOut, role, setRole, replayOnboarding } = useAuth();
-  const navigate = useNavigate();
-
-  const handleReplayOnboarding = async () => {
-    await replayOnboarding();
-    navigate("/");
-  };
+  const { signOut, role, setRole } = useAuth();
 
   const toggleDark = () => {
     setDarkMode(!darkMode);
