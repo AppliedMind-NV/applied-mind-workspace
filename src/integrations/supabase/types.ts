@@ -347,21 +347,18 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           id: string
-          onboarding_completed: boolean
           role: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           id: string
-          onboarding_completed?: boolean
           role?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           id?: string
-          onboarding_completed?: boolean
           role?: string
         }
         Relationships: []
