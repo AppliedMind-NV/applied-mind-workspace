@@ -2,7 +2,12 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Brain, Sparkles } from "lucide-react";
 
-const Navbar = () => {
+interface NavbarProps {
+  onSignIn?: () => void;
+  onGetStarted?: () => void;
+}
+
+const Navbar = ({ onSignIn, onGetStarted }: NavbarProps) => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/30">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
@@ -20,15 +25,26 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link to="/auth">
-            <Button variant="ghost" size="sm">Sign In</Button>
-          </Link>
-          <Link to="/auth">
-            <Button variant="hero" size="sm" className="gap-1.5">
+          {onSignIn ? (
+            <Button variant="ghost" size="sm" onClick={onSignIn}>Sign In</Button>
+          ) : (
+            <Link to="/auth">
+              <Button variant="ghost" size="sm">Sign In</Button>
+            </Link>
+          )}
+          {onGetStarted ? (
+            <Button variant="hero" size="sm" className="gap-1.5" onClick={onGetStarted}>
               <Sparkles className="w-3.5 h-3.5" />
               Get Started
             </Button>
-          </Link>
+          ) : (
+            <Link to="/auth">
+              <Button variant="hero" size="sm" className="gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                Get Started
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
