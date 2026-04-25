@@ -111,29 +111,29 @@ export default function Auth() {
       />
 
       {/* HERO with auth card */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative pt-24 sm:pt-32 pb-12 sm:pb-20 overflow-hidden">
         <div className="absolute inset-0 gradient-mesh" />
         <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-pulse-glow" />
         <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-lavender/15 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: "1s" }} />
 
-        <div className="container mx-auto px-6 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
+        <div className="container mx-auto px-4 sm:px-6 relative z-10">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center max-w-6xl mx-auto">
             {/* LEFT: marketing copy */}
-            <div className="space-y-6 text-center lg:text-left animate-fade-up">
+            <div className="space-y-5 sm:space-y-6 text-center lg:text-left animate-fade-up">
               <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />
                 <span className="text-xs font-medium text-primary">AI-Powered Learning Platform</span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold font-heading leading-[1.1]">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold font-heading leading-[1.1]">
                 <span className="text-gradient-hero">{heroCopy.title}</span>
               </h1>
 
-              <p className="text-lg text-muted-foreground leading-relaxed max-w-lg mx-auto lg:mx-0">
+              <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-lg mx-auto lg:mx-0">
                 {heroCopy.sub} One workspace for notes, flashcards, practice, and code — powered by AI that actually understands what you're studying.
               </p>
 
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 pt-2">
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 pt-2">
                 {[
                   { icon: Brain, label: "AI Study Coach" },
                   { icon: BookOpen, label: "Smart Notes" },

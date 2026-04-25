@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
-import { Onboarding } from "@/components/Onboarding";
+
 import Dashboard from "@/pages/Dashboard";
 import Notes from "@/pages/Notes";
 import Flashcards from "@/pages/Flashcards";
@@ -40,10 +40,8 @@ function CatchAllRedirect() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, onboardingCompleted, completeOnboarding } = useAuth();
-  // Wait for both session AND profile (onboardingCompleted !== null) before deciding,
-  // otherwise the intro flickers open while the profile row is still loading.
-  if (loading || (session && onboardingCompleted === null)) return (
+  const { session, loading } = useAuth();
+  if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4 animate-fade-in">
         <div className="relative h-10 w-10">
@@ -55,7 +53,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     </div>
   );
   if (!session) return <Navigate to="/auth" replace />;
-  if (onboardingCompleted === false) return <Onboarding onComplete={completeOnboarding} />;
   return <>{children}</>;
 }
 
