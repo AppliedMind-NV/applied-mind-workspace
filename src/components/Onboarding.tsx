@@ -8,36 +8,26 @@ const steps = [
     icon: Sparkles,
     title: "Welcome to AppliedMind",
     description: "Your AI-powered study workspace built for technical learners. One place to take notes, study, code, and retain knowledge.",
-    color: "text-primary",
-    bg: "bg-primary/10",
   },
   {
     icon: BookOpen,
     title: "Smart Notes",
     description: "Organize notes by subject with folders. Upload lectures, record audio, and let AI help you summarize and understand complex material.",
-    color: "text-emerald-500",
-    bg: "bg-emerald-500/10",
   },
   {
     icon: Brain,
     title: "Flashcards & Practice",
     description: "Generate flashcards and practice questions from your notes. Use spaced repetition to retain what you learn — not just memorize it.",
-    color: "text-amber-500",
-    bg: "bg-amber-500/10",
   },
   {
     icon: Code,
     title: "Code Lab",
     description: "Write and explore code alongside your notes. Get AI explanations and work through guided coding exercises.",
-    color: "text-violet-500",
-    bg: "bg-violet-500/10",
   },
   {
     icon: Zap,
     title: "AI Study Coach",
     description: "Your dashboard tracks due flashcards, suggests review topics, and builds a daily study plan — so you always know what to study next.",
-    color: "text-rose-500",
-    bg: "bg-rose-500/10",
   },
 ];
 
@@ -52,8 +42,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const Icon = step.icon;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative overflow-hidden">
+      <div className="absolute inset-0 gradient-mesh" />
+      <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-pulse-glow" />
+      <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-lavender/15 rounded-full blur-3xl animate-pulse-glow" style={{ animationDelay: "1s" }} />
+
+      <div className="w-full max-w-md space-y-8 relative z-10 animate-fade-up">
         {/* Progress dots */}
         <div className="flex items-center justify-center gap-2">
           {steps.map((_, i) => (
@@ -70,13 +64,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl border bg-card p-8 text-center space-y-6 shadow-lg">
-          <div className={cn("mx-auto flex h-16 w-16 items-center justify-center rounded-2xl", step.bg)}>
-            <Icon className={cn("h-8 w-8", step.color)} />
+        <div className="glass-card border border-border/30 glow-sm p-8 text-center space-y-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl gradient-primary glow-sm">
+            <Icon className="h-8 w-8 text-primary-foreground" />
           </div>
 
           <div className="space-y-3">
-            <h2 className="text-xl font-semibold text-card-foreground">{step.title}</h2>
+            <h2 className="text-2xl font-bold font-heading text-gradient-hero">{step.title}</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
           </div>
 
@@ -91,6 +85,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               </Button>
             )}
             <Button
+              variant="hero"
               onClick={() => (isLast ? onComplete() : setCurrent(current + 1))}
               className={cn("flex-1 gap-2", current === 0 && "w-full")}
             >
