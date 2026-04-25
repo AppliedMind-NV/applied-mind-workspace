@@ -68,24 +68,6 @@ export default function SettingsPage() {
           </button>
         </section>
 
-        {/* Help */}
-        <section className="rounded-lg border bg-card p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <HelpCircle size={14} className="text-primary" />
-            <h2 className="text-sm font-medium">Help</h2>
-          </div>
-          <button
-            onClick={handleReplayOnboarding}
-            className="flex items-center gap-2 px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors"
-          >
-            <Sparkles size={14} />
-            Replay onboarding
-          </button>
-          <p className="text-xs text-muted-foreground mt-2">
-            See the welcome walkthrough again.
-          </p>
-        </section>
-
         {/* Account */}
         <section className="rounded-lg border bg-card p-4">
           <div className="flex items-center gap-2 mb-4">
