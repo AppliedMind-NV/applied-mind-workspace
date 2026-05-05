@@ -16,14 +16,14 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "@/hooks/use-toast";
-import { getSessionToken } from "@/lib/auth-helpers";
+import { callAI } from "@/lib/aiRequest";
 
 interface AIMessage {
   role: "user" | "assistant";
   content: string;
 }
 
-const NOTE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/note-ai`;
+const CODE_AI_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/code-lab-ai`;
 
 const AI_ACTIONS = [
   { key: "code_explain", label: "Explain Code", icon: Lightbulb, description: "What does this code do?" },
@@ -66,66 +66,99 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
       setLoading(true);
 
       try {
-        const token = await getSessionToken();
-        const resp = await fetch(NOTE_AI_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            messages: [{ role: "user", content: userContent || code }],
-            action: actionKey,
-            noteContent: code,
-            noteTitle: title || "Code Lab",
-          }),
-        });
+        const safeCode = code || "";
+        const safeTitle = title || "Code Lab";
 
-        if (!resp.ok) {
-          const data = await resp.json().catch(() => ({}));
-          throw new Error(data.error || `Request failed (${resp.status})`);
+        console.log("EDITOR CODE VALUE:", JSON.stringify(safeCode).slice(0, 200));
+        console.log("EDITOR CODE LENGTH:", safeCode.length);
+        console.log("USER CONTENT:", userContent?.slice(0, 100));
+
+        if (!safeCode.trim() && !userContent?.trim()) {
+          throw new Error("No code provided — please write some code in the editor first.");
         }
 
-        const reader = resp.body?.getReader();
-        if (!reader) throw new Error("No stream");
+        // For action buttons: send the code as the message content
+        // For chat: userContent already contains the full prompt with code embedded
+        const messageContent = code && code.length > 0
+          ? code
+          : safeCode || "No code provided";
+        console.log("FINAL MESSAGE BEING SENT:", messageContent);
+        const requestBody = {
+          messages: [{ role: "user", content: messageContent }],
+          action: actionKey,
+          noteContent: messageContent,
+          noteTitle: safeTitle,
+        };
+        console.log("Code Lab AI request →", CODE_AI_URL);
+        console.log("Code value:", safeCode.slice(0, 100));
+        console.log("Action:", actionKey);
+        console.log("Code Lab AI body →", JSON.stringify(requestBody).slice(0, 300));
 
-        const decoder = new TextDecoder();
-        let buffer = "";
+        const resp = await callAI({
+          endpoint: CODE_AI_URL,
+          body: requestBody,
+        });
+
+        const contentType = resp.headers.get("content-type") || "";
+        console.log("Code Lab AI response content-type:", contentType);
+        console.log("Code Lab AI response status:", resp.status);
+
         let text = "";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
+        if (contentType.includes("text/event-stream")) {
+          // SSE streaming path
+          const reader = resp.body?.getReader();
+          if (!reader) throw new Error("No stream reader available");
 
-          let idx: number;
-          while ((idx = buffer.indexOf("\n")) !== -1) {
-            let line = buffer.slice(0, idx);
-            buffer = buffer.slice(idx + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
-            if (!line.startsWith("data: ")) continue;
-            const json = line.slice(6).trim();
-            if (json === "[DONE]") break;
-            try {
-              const parsed = JSON.parse(json);
-              const c = parsed.choices?.[0]?.delta?.content;
-              if (c) {
-                text += c;
-                setMessages((prev) => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === "assistant")
-                    return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: text } : m));
-                  return [...prev, { role: "assistant", content: text }];
-                });
-              }
-            } catch {}
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            let idx: number;
+            while ((idx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, idx);
+              buffer = buffer.slice(idx + 1);
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line.startsWith("data: ")) continue;
+              const json = line.slice(6).trim();
+              if (json === "[DONE]") break;
+              try {
+                const parsed = JSON.parse(json);
+                const c = parsed.choices?.[0]?.delta?.content;
+                if (c) {
+                  text += c;
+                  setMessages((prev) => {
+                    const last = prev[prev.length - 1];
+                    if (last?.role === "assistant")
+                      return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: text } : m));
+                    return [...prev, { role: "assistant", content: text }];
+                  });
+                }
+              } catch {}
+            }
+          }
+        } else {
+          // JSON response path
+          const data = await resp.json();
+          console.log("Code Lab AI JSON response:", data);
+          text = data.result || data.message || data.choices?.[0]?.message?.content || "";
+          if (text) {
+            setMessages((prev) => [...prev, { role: "assistant", content: text }]);
           }
         }
 
         if (!text) setMessages((prev) => [...prev, { role: "assistant", content: "No response received." }]);
       } catch (err: any) {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${err.message}` }]);
-        toast({ title: "AI error", description: err.message, variant: "destructive" });
+        const msg =
+          err?.message === "Failed to fetch"
+            ? "Could not connect to AI service. Please check your connection and try again."
+            : err?.message || "An unexpected error occurred";
+        setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${msg}` }]);
+        toast({ title: "AI error", description: msg, variant: "destructive" });
       } finally {
         setLoading(false);
       }
@@ -241,7 +274,7 @@ const CodeAIPanel = forwardRef<CodeAIPanelRef, CodeAIPanelProps>(
         </div>
       </div>
     );
-  }
+  },
 );
 
 CodeAIPanel.displayName = "CodeAIPanel";
