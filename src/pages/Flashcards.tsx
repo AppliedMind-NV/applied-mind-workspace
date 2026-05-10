@@ -72,7 +72,6 @@ export default function Flashcards() {
     setDueCards(remaining);
 
     if (remaining.length === 0) {
-      // Session complete
       setCurrentIndex(0);
     } else {
       setCurrentIndex(Math.min(currentIndex, remaining.length - 1));
@@ -99,7 +98,6 @@ export default function Flashcards() {
     }
     if (data) {
       setAllCards((prev) => [data, ...prev]);
-      // If due now, add to due list
       if (new Date(data.next_review) <= new Date()) {
         setDueCards((prev) => [...prev, data]);
       }
@@ -137,17 +135,17 @@ export default function Flashcards() {
     if (dueCards.length === 0) {
       return (
         <div className="max-w-lg mx-auto px-6 py-16 text-center animate-fade-in">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <Check size={28} className="text-primary" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">Session Complete!</h2>
+          <h2 className="text-xl font-bold mb-2">Session Complete!</h2>
           <p className="text-sm text-muted-foreground mb-1">
-            You reviewed <span className="font-medium text-foreground">{reviewedCount}</span> card{reviewedCount !== 1 ? "s" : ""}.
+            You reviewed <span className="font-semibold text-foreground">{reviewedCount}</span> card{reviewedCount !== 1 ? "s" : ""}.
           </p>
           <p className="text-xs text-muted-foreground mb-6">Cards will reappear based on your ratings.</p>
           <button
             onClick={() => { setView("dashboard"); fetchCards(); }}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all btn-glow"
           >
             Back to Flashcards
           </button>
@@ -170,7 +168,6 @@ export default function Flashcards() {
           </span>
         </div>
 
-        {/* Progress bar */}
         <div className="flex items-center gap-2 mb-6">
           <Progress
             value={dueCards.length + reviewedCount > 0 ? (reviewedCount / (dueCards.length + reviewedCount)) * 100 : 0}
@@ -181,14 +178,13 @@ export default function Flashcards() {
           </span>
         </div>
 
-        {/* Card */}
         {card && (
           <div className="space-y-4">
             <button
               onClick={() => setFlipped(!flipped)}
-              className="w-full min-h-[260px] rounded-xl border-2 bg-card p-8 text-left transition-all hover:border-primary/30 cursor-pointer relative overflow-hidden"
+              className="w-full min-h-[260px] glass-card glow-border p-8 text-left transition-all hover:border-primary/30 cursor-pointer relative overflow-hidden"
             >
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-4">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-4 font-semibold">
                 {flipped ? "Answer" : "Question"}
               </p>
               <p className={`text-lg leading-relaxed ${flipped ? "" : "font-medium"}`}>
@@ -203,31 +199,31 @@ export default function Flashcards() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleRate("again")}
-                  className="flex-1 flex flex-col items-center gap-1 py-3 rounded-lg border hover:bg-destructive/10 hover:border-destructive/30 transition-colors"
+                  className="flex-1 flex flex-col items-center gap-1 py-3.5 rounded-xl glass-card hover:border-destructive/30 transition-all"
                 >
                   <div className="flex items-center gap-1.5">
                     <RotateCcw size={14} />
-                    <span className="text-sm font-medium">Again</span>
+                    <span className="text-sm font-semibold">Again</span>
                   </div>
                   <span className="text-[10px] text-muted-foreground">1 day</span>
                 </button>
                 <button
                   onClick={() => handleRate("good")}
-                  className="flex-1 flex flex-col items-center gap-1 py-3 rounded-lg border hover:bg-accent transition-colors"
+                  className="flex-1 flex flex-col items-center gap-1 py-3.5 rounded-xl glass-card hover:border-accent-foreground/20 transition-all"
                 >
                   <div className="flex items-center gap-1.5">
                     <Check size={14} />
-                    <span className="text-sm font-medium">Good</span>
+                    <span className="text-sm font-semibold">Good</span>
                   </div>
                   <span className="text-[10px] text-muted-foreground">3 days</span>
                 </button>
                 <button
                   onClick={() => handleRate("easy")}
-                  className="flex-1 flex flex-col items-center gap-1 py-3 rounded-lg border hover:bg-primary/10 hover:border-primary/30 transition-colors"
+                  className="flex-1 flex flex-col items-center gap-1 py-3.5 rounded-xl glass-card hover:border-primary/30 transition-all"
                 >
                   <div className="flex items-center gap-1.5">
-                    <Zap size={14} />
-                    <span className="text-sm font-medium">Easy</span>
+                    <Zap size={14} className="text-primary" />
+                    <span className="text-sm font-semibold">Easy</span>
                   </div>
                   <span className="text-[10px] text-muted-foreground">7 days</span>
                 </button>
@@ -259,14 +255,14 @@ export default function Flashcards() {
             <p className="text-sm text-muted-foreground text-center py-8">No flashcards yet.</p>
           ) : (
             allCards.map((c) => (
-              <div key={c.id} className="rounded-lg border bg-card p-4 group">
+              <div key={c.id} className="glass-card p-4 group">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium mb-1">{c.front}</p>
                     <p className="text-xs text-muted-foreground">{c.back}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                       new Date(c.next_review) <= new Date()
                         ? "bg-primary/10 text-primary"
                         : "bg-muted text-muted-foreground"
@@ -275,7 +271,7 @@ export default function Flashcards() {
                     </span>
                     <button
                       onClick={() => deleteCard(c.id)}
-                      className="p-1 rounded hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-1 rounded-md hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-all"
                     >
                       <Trash2 size={12} className="text-destructive" />
                     </button>
@@ -299,7 +295,7 @@ export default function Flashcards() {
     <div className="max-w-2xl mx-auto px-6 py-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight mb-1">Flashcards</h1>
+          <h1 className="text-xl font-bold tracking-tight mb-1">Flashcards</h1>
           <p className="text-sm text-muted-foreground">
             {dueCards.length > 0
               ? `${dueCards.length} card${dueCards.length !== 1 ? "s" : ""} due for review`
@@ -308,7 +304,7 @@ export default function Flashcards() {
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm hover:bg-accent transition-colors"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg glass-card text-sm font-medium hover:border-primary/30 transition-all"
         >
           <Plus size={14} />
           New Card
@@ -317,26 +313,26 @@ export default function Flashcards() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="rounded-lg border bg-card p-4 text-center">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
+        <div className="glass-card p-4 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1.5">
             <Clock size={12} className="text-primary" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Due</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Due</span>
           </div>
-          <p className="text-2xl font-semibold tabular-nums">{dueCards.length}</p>
+          <p className="text-2xl font-bold tabular-nums">{dueCards.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-4 text-center">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
+        <div className="glass-card p-4 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1.5">
             <Layers size={12} className="text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total</span>
           </div>
-          <p className="text-2xl font-semibold tabular-nums">{allCards.length}</p>
+          <p className="text-2xl font-bold tabular-nums">{allCards.length}</p>
         </div>
-        <div className="rounded-lg border bg-card p-4 text-center">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
+        <div className="glass-card p-4 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1.5">
             <Zap size={12} className="text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Mastered</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Mastered</span>
           </div>
-          <p className="text-2xl font-semibold tabular-nums">{masteredCount}</p>
+          <p className="text-2xl font-bold tabular-nums">{masteredCount}</p>
         </div>
       </div>
 
@@ -353,31 +349,31 @@ export default function Flashcards() {
 
       {/* Create card form */}
       {showCreate && (
-        <div className="mb-6 p-4 rounded-lg border bg-card space-y-3">
+        <div className="mb-6 glass-card p-5 space-y-3">
           <input
             value={newFront}
             onChange={(e) => setNewFront(e.target.value)}
             placeholder="Question (front)"
-            className="w-full px-3 py-2 rounded-md border bg-background text-sm outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-muted/30 text-sm outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
           <textarea
             value={newBack}
             onChange={(e) => setNewBack(e.target.value)}
             placeholder="Answer (back)"
             rows={3}
-            className="w-full px-3 py-2 rounded-md border bg-background text-sm outline-none resize-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-muted/30 text-sm outline-none resize-none focus:ring-2 focus:ring-primary/50 transition-all"
           />
           <div className="flex gap-2">
             <button
               onClick={createCard}
               disabled={!newFront.trim() || !newBack.trim()}
-              className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40"
+              className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 btn-glow"
             >
               Create Card
             </button>
             <button
               onClick={() => setShowCreate(false)}
-              className="px-4 py-2 rounded-md border text-sm hover:bg-accent transition-colors"
+              className="px-5 py-2.5 rounded-lg glass-card text-sm font-medium hover:bg-accent/30 transition-all"
             >
               Cancel
             </button>
@@ -390,14 +386,14 @@ export default function Flashcards() {
         <button
           onClick={startReview}
           disabled={dueCards.length === 0}
-          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed btn-glow"
         >
           <RotateCcw size={14} />
           {dueCards.length > 0 ? `Review ${dueCards.length} Card${dueCards.length !== 1 ? "s" : ""}` : "No Cards Due"}
         </button>
         <button
           onClick={() => setView("browse")}
-          className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border text-sm hover:bg-accent transition-colors"
+          className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl glass-card text-sm font-medium hover:border-primary/30 transition-all"
         >
           <BookOpen size={14} />
           Browse All
@@ -406,16 +402,16 @@ export default function Flashcards() {
 
       {/* Due cards preview */}
       {dueCards.length > 0 && (
-        <div className="rounded-lg border bg-card p-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Due Now</p>
-          <div className="space-y-2">
+        <div className="glass-card p-5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Due Now</p>
+          <div className="space-y-1.5">
             {dueCards.slice(0, 5).map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background"
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-accent/30 transition-all"
               >
                 <p className="text-sm truncate flex-1 mr-3">{c.front}</p>
-                <span className="text-[10px] text-primary shrink-0">Due</span>
+                <span className="text-[10px] text-primary font-semibold shrink-0">Due</span>
               </div>
             ))}
             {dueCards.length > 5 && (

@@ -19,10 +19,10 @@ import { useNavigate } from "react-router-dom";
 import WeeklyHeatmap from "@/components/WeeklyHeatmap";
 
 const quickActions = [
-  { label: "New Note", icon: FileText, color: "text-primary", path: "/notes" },
-  { label: "Start Study", icon: Clock, color: "text-primary", path: "/study" },
-  { label: "Practice", icon: HelpCircle, color: "text-primary", path: "/practice" },
-  { label: "Review Cards", icon: Layers, color: "text-primary", path: "/flashcards" },
+  { label: "New Note", icon: FileText, path: "/notes" },
+  { label: "Start Study", icon: Clock, path: "/study" },
+  { label: "Practice", icon: HelpCircle, path: "/practice" },
+  { label: "Review Cards", icon: Layers, path: "/flashcards" },
 ];
 
 interface RecentNote {
@@ -60,7 +60,6 @@ export default function Dashboard() {
   const [minutesPerDay, setMinutesPerDay] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
 
-  // Study Plan state
   const [dueCards, setDueCards] = useState<DueFlashcard[]>([]);
   const [reviewTopics, setReviewTopics] = useState<ReviewTopic[]>([]);
   const [staleNotes, setStaleNotes] = useState<RecentNote[]>([]);
@@ -93,13 +92,9 @@ export default function Dashboard() {
         supabase.from("study_sessions").select("duration_minutes").eq("user_id", user.id).gte("started_at", weekAgo),
         supabase.from("notes").select("id, title, updated_at, folder_id").eq("user_id", user.id).order("updated_at", { ascending: false }).limit(5),
         supabase.from("study_sessions").select("started_at, duration_minutes").eq("user_id", user.id).order("started_at", { ascending: false }).limit(365),
-        // Due flashcards with preview
         supabase.from("flashcards").select("id, front, note_id").eq("user_id", user.id).lte("next_review", now).order("next_review", { ascending: true }).limit(5),
-        // Notes not updated in 3+ days (candidates for review)
         supabase.from("notes").select("id, title, updated_at, folder_id").eq("user_id", user.id).lte("updated_at", threeDaysAgo).order("updated_at", { ascending: true }).limit(10),
-        // Folders for topic names
         supabase.from("folders").select("id, name").eq("user_id", user.id),
-        // Practice questions count
         supabase.from("practice_questions").select("id", { count: "exact", head: true }).eq("user_id", user.id),
       ]);
 
@@ -112,7 +107,6 @@ export default function Dashboard() {
       setSessionsCount(sessions.length);
       setStudyMinutes(sessions.reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0));
 
-      // Build study dates and minutes-per-day for heatmap
       const streakDays = streakRes.data ?? [];
       const datesSet = new Set<string>();
       const minsMap = new Map<string, number>();
@@ -155,13 +149,11 @@ export default function Dashboard() {
       setRecentNotes(recentRes.data ?? []);
       setDueCards(dueCardsRes.data ?? []);
 
-      // Build review topics from stale notes
       const folders = foldersRes.data ?? [];
       const folderMap = new Map(folders.map((f) => [f.id, f.name]));
       const staleData = staleNotesRes.data ?? [];
       setStaleNotes(staleData);
 
-      // Group stale notes by folder for recommended topics
       const topicMap = new Map<string, ReviewTopic>();
       for (const note of staleData) {
         const key = note.folder_id || "__uncategorized";
@@ -246,13 +238,13 @@ export default function Dashboard() {
   ].slice(0, 5);
 
   const totalReviewItems = flashcardsDue + staleNotes.length;
-
   const allCaughtUp = studyPlanItems.length === 0 && !loading;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 animate-fade-in">
+      {/* Greeting */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">{greeting()}</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-1">{greeting()}</h1>
         <p className="text-sm text-muted-foreground">
           {loading ? "Loading your dashboard…" : flashcardsDue > 0
             ? `You have ${flashcardsDue} flashcard${flashcardsDue !== 1 ? "s" : ""} due for review.`
@@ -260,36 +252,41 @@ export default function Dashboard() {
         </p>
       </div>
 
+      {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {quickActions.map((action) => (
           <button
             key={action.label}
             onClick={() => navigate(action.path)}
-            className="flex items-center gap-2.5 px-4 py-3 rounded-lg border bg-card hover:bg-accent transition-colors text-left"
+            className="glass-card flex items-center gap-2.5 px-4 py-3.5 hover:border-primary/30 transition-all text-left group"
           >
-            <action.icon size={16} className={action.color} />
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+              <action.icon size={15} className="text-primary" />
+            </div>
             <span className="text-sm font-medium">{action.label}</span>
           </button>
         ))}
       </div>
 
-      {/* AI Study Coach — Today's Study Plan */}
-      <div className="rounded-lg border bg-card p-4 mb-8">
-        <div className="flex items-center justify-between mb-3">
+      {/* AI Study Coach */}
+      <div className="glass-card p-5 mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Sparkles size={14} className="text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">AI Study Coach</span>
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+              <Sparkles size={12} className="text-primary" />
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Study Coach</span>
           </div>
           <div className="flex items-center gap-2">
             {studyPlanItems.length > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
                 {studyPlanItems.length} item{studyPlanItems.length !== 1 ? "s" : ""}
               </span>
             )}
             {totalReviewItems > 0 && (
               <button
                 onClick={() => navigate("/quick-review")}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:bg-primary/90 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] font-semibold hover:bg-primary/90 transition-all btn-glow"
               >
                 <Zap size={11} />
                 Quick Review
@@ -301,10 +298,12 @@ export default function Dashboard() {
         {loading ? (
           <p className="text-sm text-muted-foreground px-3 py-2">Loading…</p>
         ) : allCaughtUp ? (
-          <div className="flex items-center gap-3 px-3 py-4 text-center justify-center">
-            <CheckCircle2 size={18} className="text-primary" />
-            <div>
-              <p className="text-sm font-medium">All caught up!</p>
+          <div className="flex items-center gap-3 px-3 py-5 text-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <CheckCircle2 size={18} className="text-primary" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold">All caught up!</p>
               <p className="text-xs text-muted-foreground">No pending reviews. Create notes or start a study session.</p>
             </div>
           </div>
@@ -314,14 +313,14 @@ export default function Dashboard() {
               <button
                 key={item.key}
                 onClick={item.action}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors text-left group"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent/30 transition-all text-left group"
               >
-                <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                   item.priority === "high"
                     ? "bg-primary/10"
                     : item.priority === "medium"
-                    ? "bg-accent"
-                    : "bg-muted"
+                    ? "bg-accent/50"
+                    : "bg-muted/50"
                 }`}>
                   <item.icon size={14} className={
                     item.priority === "high" ? "text-primary" : "text-muted-foreground"
@@ -340,49 +339,58 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-8">
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp size={14} className="text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">This Week</span>
+      {/* Stats Grid */}
+      <div className="grid md:grid-cols-3 gap-4 mb-8">
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+              <TrendingUp size={12} className="text-primary" />
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">This Week</span>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Flame size={18} className={streak > 0 ? "text-orange-500" : "text-muted-foreground"} />
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                <Flame size={18} className={streak > 0 ? "text-orange-500" : "text-muted-foreground"} />
+              </div>
               <div>
-                <p className="text-2xl font-semibold tabular-nums">{loading ? "—" : streak}</p>
+                <p className="text-2xl font-bold tabular-nums">{loading ? "—" : streak}</p>
                 <p className="text-xs text-muted-foreground">Day streak</p>
               </div>
             </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">
-                {loading ? "—" : studyMinutes >= 60 ? `${(studyMinutes / 60).toFixed(1)}h` : `${studyMinutes}m`}
-              </p>
-              <p className="text-xs text-muted-foreground">Study time</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">{loading ? "—" : sessionsCount}</p>
-              <p className="text-xs text-muted-foreground">Sessions</p>
-            </div>
-            <div>
-              <p className="text-2xl font-semibold tabular-nums">{loading ? "—" : flashcardsTotal}</p>
-              <p className="text-xs text-muted-foreground">Total flashcards</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-lg font-bold tabular-nums">
+                  {loading ? "—" : studyMinutes >= 60 ? `${(studyMinutes / 60).toFixed(1)}h` : `${studyMinutes}m`}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Study time</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold tabular-nums">{loading ? "—" : sessionsCount}</p>
+                <p className="text-[10px] text-muted-foreground">Sessions</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold tabular-nums">{loading ? "—" : flashcardsTotal}</p>
+                <p className="text-[10px] text-muted-foreground">Cards</p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="md:col-span-2 rounded-lg border bg-card p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap size={14} className="text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">At a Glance</span>
+        <div className="md:col-span-2 glass-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+              <Zap size={12} className="text-primary" />
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">At a Glance</span>
           </div>
           <div className="space-y-2">
             <div
               onClick={() => navigate("/flashcards")}
-              className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors cursor-pointer"
+              className="flex items-center justify-between px-3 py-3 rounded-lg hover:bg-accent/30 transition-all cursor-pointer"
             >
               <div className="flex items-center gap-3">
-                <div className={`w-1.5 h-1.5 rounded-full ${flashcardsDue > 0 ? "bg-primary" : "bg-muted"}`} />
+                <div className={`w-2 h-2 rounded-full ${flashcardsDue > 0 ? "bg-primary animate-pulse-glow" : "bg-muted"}`} />
                 <span className="text-sm">
                   {flashcardsDue > 0 ? `Review ${flashcardsDue} due flashcard${flashcardsDue !== 1 ? "s" : ""}` : "No flashcards due"}
                 </span>
@@ -391,20 +399,20 @@ export default function Dashboard() {
             </div>
             <div
               onClick={() => navigate("/notes")}
-              className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors cursor-pointer"
+              className="flex items-center justify-between px-3 py-3 rounded-lg hover:bg-accent/30 transition-all cursor-pointer"
             >
               <div className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                <div className="w-2 h-2 rounded-full bg-muted-foreground" />
                 <span className="text-sm">{notesCount} note{notesCount !== 1 ? "s" : ""} saved</span>
               </div>
               <ArrowRight size={14} className="text-muted-foreground" />
             </div>
             <div
               onClick={() => navigate("/practice")}
-              className="flex items-center justify-between px-3 py-2.5 rounded-md bg-background hover:bg-accent/50 transition-colors cursor-pointer"
+              className="flex items-center justify-between px-3 py-3 rounded-lg hover:bg-accent/30 transition-all cursor-pointer"
             >
               <div className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-muted" />
+                <div className="w-2 h-2 rounded-full bg-muted" />
                 <span className="text-sm">Practice questions</span>
               </div>
               <ArrowRight size={14} className="text-muted-foreground" />
@@ -414,10 +422,12 @@ export default function Dashboard() {
       </div>
 
       {/* Activity Heatmap */}
-      <div className="rounded-lg border bg-card p-4 mb-8">
+      <div className="glass-card p-5 mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <Flame size={14} className="text-primary" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Activity</span>
+          <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+            <Flame size={12} className="text-primary" />
+          </div>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activity</span>
         </div>
         {loading ? (
           <p className="text-sm text-muted-foreground px-3 py-2">Loading…</p>
@@ -440,13 +450,16 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
+      {/* Recent Notes */}
+      <div className="glass-card p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <BookOpen size={14} className="text-primary" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Recent Notes</span>
+            <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+              <BookOpen size={12} className="text-primary" />
+            </div>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recent Notes</span>
           </div>
-          <button onClick={() => navigate("/notes")} className="text-xs text-primary hover:underline">View all</button>
+          <button onClick={() => navigate("/notes")} className="text-xs text-primary font-medium hover:underline">View all</button>
         </div>
         <div className="space-y-1">
           {loading ? (
@@ -458,7 +471,7 @@ export default function Dashboard() {
               <div
                 key={note.id}
                 onClick={() => navigate("/notes")}
-                className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-accent/50 transition-colors cursor-pointer"
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-accent/30 transition-all cursor-pointer"
               >
                 <p className="text-sm font-medium">{note.title}</p>
                 <span className="text-xs text-muted-foreground">{formatTime(note.updated_at)}</span>

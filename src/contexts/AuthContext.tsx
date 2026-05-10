@@ -10,10 +10,8 @@ interface AuthContextType {
   loading: boolean;
   role: UserRole;
   avatarUrl: string | null;
-  onboardingCompleted: boolean;
   setRole: (role: UserRole) => Promise<void>;
   refreshAvatar: (url: string) => void;
-  completeOnboarding: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -23,10 +21,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   role: "student",
   avatarUrl: null,
-  onboardingCompleted: true,
   setRole: async () => {},
   refreshAvatar: () => {},
-  completeOnboarding: async () => {},
   signOut: async () => {},
 });
 
@@ -37,31 +33,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [role, setRoleState] = useState<UserRole>("student");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
 
-  // Load profile role from database
+  // Load profile role/avatar from database
   const loadProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("role, avatar_url, onboarding_completed")
+      .select("role, avatar_url")
       .eq("id", userId)
       .maybeSingle();
     if (error) {
       console.error("Failed to load profile:", error);
       return;
     }
-    if (!data) {
-      // Profile not yet created by trigger — treat as new user
-      setOnboardingCompleted(false);
-      return;
-    }
-    if (data.role) {
+    if (data?.role) {
       setRoleState(data.role as UserRole);
     }
-    if (data.avatar_url) {
+    if (data?.avatar_url) {
       setAvatarUrl(data.avatar_url as string);
     }
-    setOnboardingCompleted(data.onboarding_completed ?? false);
   }, []);
 
   useEffect(() => {
@@ -103,25 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAvatar = (url: string) => setAvatarUrl(url);
 
-  const completeOnboarding = async () => {
-    const user = session?.user;
-    if (!user) return;
-    setOnboardingCompleted(true);
-    await supabase
-      .from("profiles")
-      .update({ onboarding_completed: true })
-      .eq("id", user.id);
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setRoleState("student");
     setAvatarUrl(null);
-    setOnboardingCompleted(true);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, avatarUrl, onboardingCompleted, setRole, refreshAvatar, completeOnboarding, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, role, avatarUrl, setRole, refreshAvatar, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -176,63 +176,52 @@ export default function CodeLab() {
     }
   };
 
+  const RUN_CODE_URL = "https://eccspsmttoytiqiqvham.supabase.co/functions/v1/run-code";
+
   const runCode = async () => {
-    if (!code.trim() || !selectedId) return;
+    if (!selectedId) return;
+    if (!code.trim()) {
+      toast({ title: "Nothing to run", description: "Write some code first." });
+      return;
+    }
     setRunning(true);
     setOutput("▸ Running…\n");
+    console.log("RUN-CODE request", { language, codeLength: code.length });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 35_000);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        setOutput("▸ Error: You must be logged in to run code.");
-        setRunning(false);
-        return;
+      const { getSessionToken } = await import("@/lib/auth-helpers");
+      const token = await getSessionToken();
+      const resp = await fetch(RUN_CODE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ code, language }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      console.log("RUN-CODE response status", resp.status);
+
+      let data: { stdout: string; stderr: string; exitCode: number; language: string };
+      try {
+        data = await resp.json();
+      } catch {
+        data = { stdout: "", stderr: "Malformed response from execution service", exitCode: 1, language };
       }
 
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-code`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ code, language }),
-        }
-      );
-
-      const result = await resp.json();
-
-      if (!resp.ok) {
-        if (resp.status === 502) {
-          setOutput(
-            "▸ Code execution service is temporarily unavailable.\n\n" +
-            "The external sandbox provider we use is currently unreachable.\n" +
-            "This is a known issue — we're working on switching to a new provider.\n\n" +
-            "In the meantime, you can still write and save your code.\n" +
-            "Try running it in a local editor or an online sandbox like replit.com."
-          );
-        } else if (resp.status === 429) {
-          setOutput("▸ Rate limit reached. Please wait a moment before running again.");
-        } else if (resp.status === 408) {
-          setOutput("▸ Code execution timed out (10s limit). Try simplifying your code.");
-        } else {
-          setOutput(`▸ Error: ${result.error || "Execution failed"}`);
-        }
-        setRunning(false);
-        return;
-      }
-
-      const parts: string[] = [];
-      if (result.stdout) parts.push(result.stdout.trimEnd());
-      if (result.stderr) parts.push(`⚠ ${result.stderr.trimEnd()}`);
-      if (parts.length === 0) parts.push("(no output)");
-      parts.push(
-        `\n▸ Process finished (exit code ${result.exitCode ?? 0}) — ${result.language} ${result.version}`
-      );
-      setOutput(parts.join("\n"));
+      const display = data.stderr ? data.stderr : data.stdout;
+      setOutput(display || "(no output)");
     } catch (err: any) {
-      setOutput(`▸ Error: ${err.message || "Network error"}`);
+      clearTimeout(timeout);
+      const msg = err.name === "AbortError"
+        ? "Execution timed out (35s limit)"
+        : err.message || "Network error";
+      setOutput(`▸ Error: ${msg}`);
+      toast({ title: "Run failed", description: msg, variant: "destructive" });
     } finally {
       setRunning(false);
     }
@@ -426,7 +415,8 @@ export default function CodeLab() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="text-[10px] px-1.5 py-1 rounded bg-accent text-foreground font-mono outline-none cursor-pointer border-none"
+              disabled={running}
+              className="text-[10px] px-1.5 py-1 rounded bg-accent text-foreground font-mono outline-none cursor-pointer border-none disabled:opacity-50"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.value} value={l.value}>{l.label}</option>

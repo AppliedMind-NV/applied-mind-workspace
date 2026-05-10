@@ -26,7 +26,7 @@ export function AppLayout() {
         <AppSidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
 
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-12 flex items-center justify-between border-b px-4 shrink-0">
+          <header className="h-12 flex items-center justify-between border-b border-border/50 px-4 shrink-0 bg-sidebar">
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"

@@ -18,7 +18,6 @@ export default function Study() {
   const intervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<string | null>(null);
 
-  // Load today's stats
   useEffect(() => {
     if (!user) return;
     const todayStart = new Date();
@@ -44,7 +43,6 @@ export default function Study() {
       }, 1000);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      // Auto-complete when timer hits 0
       if (timeLeft === 0 && sessionId && mode === "focus") {
         completeSession();
       }
@@ -98,11 +96,9 @@ export default function Study() {
   const reset = () => {
     setIsRunning(false);
     setTimeLeft(mode === "focus" ? 25 * 60 : 5 * 60);
-    // If there was an active focus session, save it if meaningful time passed
     if (sessionId && elapsedSeconds >= 60) {
       completeSession();
     } else if (sessionId) {
-      // Discard very short sessions
       supabase.from("study_sessions").delete().eq("id", sessionId).then(() => {});
       setSessionId(null);
       setElapsedSeconds(0);
@@ -116,84 +112,118 @@ export default function Study() {
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
   };
 
+  const progress = mode === "focus"
+    ? ((25 * 60 - timeLeft) / (25 * 60)) * 100
+    : ((5 * 60 - timeLeft) / (5 * 60)) * 100;
+
   return (
-    <div className="max-w-lg mx-auto px-6 py-16 animate-fade-in text-center">
-      <h1 className="text-xl font-semibold tracking-tight mb-1">Focus Session</h1>
-      <p className="text-sm text-muted-foreground mb-12">Deep work, distraction-free.</p>
+    <div className="max-w-lg mx-auto px-6 py-16 animate-fade-in text-center relative">
+      {/* Background glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[300px] h-[300px] rounded-full bg-primary/5 blur-[100px] animate-pulse-glow" />
+      </div>
 
-      {/* Mode Toggle */}
-      <div className="flex items-center justify-center gap-1 mb-8">
-        {(["focus", "break"] as const).map((m) => (
+      <div className="relative z-10">
+        <h1 className="text-xl font-bold tracking-tight mb-1">Focus Session</h1>
+        <p className="text-sm text-muted-foreground mb-10">Deep work, distraction-free.</p>
+
+        {/* Mode Toggle */}
+        <div className="inline-flex items-center gap-1 rounded-xl bg-muted/30 p-1 mb-8">
+          {(["focus", "break"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => {
+                if (isRunning) return;
+                setMode(m);
+                setTimeLeft(m === "focus" ? 25 * 60 : 5 * 60);
+                setElapsedSeconds(0);
+              }}
+              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+                mode === m ? "bg-primary text-primary-foreground shadow-sm btn-glow" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {m === "focus" ? "Focus (25m)" : "Break (5m)"}
+            </button>
+          ))}
+        </div>
+
+        {/* Timer Ring */}
+        <div className="relative w-64 h-64 mx-auto mb-10">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 256 256">
+            <circle
+              cx="128" cy="128" r="116"
+              fill="none"
+              stroke="hsl(var(--muted))"
+              strokeWidth="4"
+              opacity="0.3"
+            />
+            <circle
+              cx="128" cy="128" r="116"
+              fill="none"
+              stroke="hsl(var(--primary))"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 116}
+              strokeDashoffset={2 * Math.PI * 116 * (1 - progress / 100)}
+              className="transition-all duration-1000"
+              style={{ filter: "drop-shadow(0 0 6px hsl(var(--primary) / 0.4))" }}
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <p className="text-6xl font-light tabular-nums tracking-tight font-mono">{formatTime(timeLeft)}</p>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-4">
           <button
-            key={m}
-            onClick={() => {
-              if (isRunning) return;
-              setMode(m);
-              setTimeLeft(m === "focus" ? 25 * 60 : 5 * 60);
-              setElapsedSeconds(0);
-            }}
-            className={`px-4 py-1.5 rounded-md text-sm transition-colors ${
-              mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
-            }`}
+            onClick={reset}
+            className="p-3.5 rounded-full glass-card hover:border-primary/30 transition-all"
           >
-            {m === "focus" ? "Focus (25m)" : "Break (5m)"}
+            <RotateCcw size={16} className="text-muted-foreground" />
           </button>
-        ))}
-      </div>
-
-      {/* Timer */}
-      <div className="mb-10">
-        <p className="text-7xl font-light tabular-nums tracking-tight font-mono">{formatTime(timeLeft)}</p>
-      </div>
-
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-3">
-        <button
-          onClick={reset}
-          className="p-3 rounded-full border hover:bg-accent transition-colors"
-        >
-          <RotateCcw size={16} className="text-muted-foreground" />
-        </button>
-        <button
-          onClick={toggleTimer}
-          className="px-8 py-3 rounded-full bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors"
-        >
-          {isRunning ? (
-            <span className="flex items-center gap-2"><Pause size={16} /> Pause</span>
+          <button
+            onClick={toggleTimer}
+            className="px-10 py-3.5 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all btn-glow"
+          >
+            {isRunning ? (
+              <span className="flex items-center gap-2"><Pause size={16} /> Pause</span>
+            ) : (
+              <span className="flex items-center gap-2"><Play size={16} /> Start</span>
+            )}
+          </button>
+          {sessionId && elapsedSeconds >= 60 ? (
+            <button
+              onClick={completeSession}
+              className="p-3.5 rounded-full glass-card hover:border-primary/30 transition-all"
+              title="Finish & save session"
+            >
+              <CheckCircle size={16} className="text-primary" />
+            </button>
           ) : (
-            <span className="flex items-center gap-2"><Play size={16} /> Start</span>
+            <div className="w-[52px]" />
           )}
-        </button>
-        {sessionId && elapsedSeconds >= 60 && (
-          <button
-            onClick={completeSession}
-            className="p-3 rounded-full border hover:bg-accent transition-colors"
-            title="Finish & save session"
-          >
-            <CheckCircle size={16} className="text-primary" />
-          </button>
-        )}
-        {!sessionId && (
-          <div className="w-3 h-3" /> /* spacer for layout symmetry */
-        )}
-      </div>
-
-      {/* Today's Stats */}
-      <div className="mt-12 flex items-center justify-center gap-8">
-        <div>
-          <p className="text-2xl font-semibold tabular-nums">{todaySessions}</p>
-          <p className="text-xs text-muted-foreground">Sessions today</p>
         </div>
-        <div>
-          <p className="text-2xl font-semibold tabular-nums">
-            {todayMinutes >= 60 ? `${(todayMinutes / 60).toFixed(1)}h` : `${todayMinutes}m`}
-          </p>
-          <p className="text-xs text-muted-foreground">Study time today</p>
+
+        {/* Today's Stats */}
+        <div className="mt-12 flex items-center justify-center gap-6">
+          <div className="glass-card px-6 py-4 text-center">
+            <p className="text-2xl font-bold tabular-nums">{todaySessions}</p>
+            <p className="text-xs text-muted-foreground">Sessions today</p>
+          </div>
+          <div className="glass-card px-6 py-4 text-center">
+            <p className="text-2xl font-bold tabular-nums">
+              {todayMinutes >= 60 ? `${(todayMinutes / 60).toFixed(1)}h` : `${todayMinutes}m`}
+            </p>
+            <p className="text-xs text-muted-foreground">Study time today</p>
+          </div>
+        </div>
+
+        {/* Ambient Sounds */}
+        <div className="mt-8">
+          <StudySounds />
         </div>
       </div>
-
-      {/* Ambient Sounds */}
-      <StudySounds />
     </div>
   );
 }

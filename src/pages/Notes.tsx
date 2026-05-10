@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import StudySounds from "@/components/StudySounds";
 import NoteEditor from "@/components/NoteEditor";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +54,7 @@ import { LectureRecorder } from "@/components/LectureRecorder";
 interface Folder {
   id: string;
   name: string;
+  parent_id: string | null;
   created_at: string;
 }
 
@@ -90,7 +91,30 @@ export default function Notes() {
   const [generatingFolderId, setGeneratingFolderId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [pendingDeleteNote, setPendingDeleteNote] = useState<{ id: string; title: string } | null>(null);
-  const [pendingDeleteFolder, setPendingDeleteFolder] = useState<{ id: string; name: string; noteCount: number } | null>(null);
+  const [pendingDeleteFolder, setPendingDeleteFolder] = useState<{ id: string; name: string; noteCount: number; childCount: number } | null>(null);
+
+  const normalizeFolder = (folder: any): Folder => ({
+    id: folder.id,
+    name: folder.name,
+    parent_id: folder.parent_id ?? null,
+    created_at: folder.created_at,
+  });
+
+  const isMissingFolderNestingColumn = (error: any) =>
+    error?.code === "42703" || /parent_id|folders_id|does not exist/i.test(error?.message ?? "");
+
+  const loadFolders = async () => {
+    const nestedRes = await (supabase.from("folders") as any)
+      .select("id, name, parent_id, created_at")
+      .order("name");
+
+    if (!nestedRes.error || !isMissingFolderNestingColumn(nestedRes.error)) return nestedRes;
+
+    const flatRes = await supabase.from("folders").select("id, name, created_at").order("name");
+    return flatRes.data
+      ? { ...flatRes, data: flatRes.data.map(normalizeFolder) }
+      : flatRes;
+  };
 
   // Fetch folders and notes
   useEffect(() => {
@@ -98,7 +122,7 @@ export default function Notes() {
     const fetchAll = async () => {
       try {
         const [foldersRes, notesRes] = await Promise.all([
-          supabase.from("folders").select("id, name, created_at").order("name"),
+          loadFolders(),
           supabase
             .from("notes")
             .select("id, title, content, updated_at, folder_id")
@@ -112,13 +136,8 @@ export default function Notes() {
           console.error("Failed to load notes:", notesRes.error);
           toast({ title: "Failed to load notes", description: notesRes.error.message, variant: "destructive" });
         }
-        if (foldersRes.data) {
-          setFolders(foldersRes.data as Folder[]);
-          setExpandedFolders(new Set(foldersRes.data.map((f: any) => f.id)));
-        }
+        if (foldersRes.data) setFolders((foldersRes.data as any[]).map(normalizeFolder));
         if (notesRes.data) {
-          console.log("[Notes] fetched notes count:", notesRes.data.length);
-          console.log("[Notes] first note content sample:", JSON.stringify(notesRes.data[0]?.content)?.slice(0, 300));
           setNotes(notesRes.data as Note[]);
           if (!selectedNote && notesRes.data.length > 0) {
             const first = notesRes.data[0] as Note;
@@ -143,12 +162,42 @@ export default function Notes() {
     }
   }, [editingFolderId]);
 
-  // Migrate old { body: string } format to TipTap JSON
-  const migrateContent = (content: any): any => {
-    if (!content) return { type: "doc", content: [] };
-    // Already TipTap JSON
-    if (content.type === "doc") return content;
-    // Old format: { body: "text" }
+  // Auto-expand the parent folder chain of the active note so users can see where it lives.
+  useEffect(() => {
+    if (!selectedNote) return;
+    const note = notes.find((n) => n.id === selectedNote);
+    if (!note?.folder_id) return;
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      // Walk up parent chain
+      let cursor: string | null = note.folder_id;
+      const seen = new Set<string>();
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        next.add(cursor);
+        const f = folders.find((x) => x.id === cursor);
+        cursor = f?.parent_id ?? null;
+      }
+      // Avoid re-render if nothing changed
+      if (next.size === prev.size) {
+        let same = true;
+        for (const id of next) if (!prev.has(id)) { same = false; break; }
+        if (same) return prev;
+      }
+      return next;
+    });
+  }, [selectedNote, notes, folders]);
+
+  // Safely normalize content for the editor
+  const migrateContent = (raw: any): any => {
+    if (!raw) return { type: "doc", content: [] };
+    let content = raw;
+    if (typeof content === "string") {
+      try { content = JSON.parse(content); } catch { return { type: "doc", content: [] }; }
+    }
+    if (content && content.type === "doc" && Array.isArray(content.content)) {
+      return content;
+    }
     if (typeof content.body === "string" && content.body) {
       return {
         type: "doc",
@@ -161,7 +210,6 @@ export default function Notes() {
     return { type: "doc", content: [] };
   };
 
-  // Extract plain text from TipTap JSON for AI context
   const extractText = (node: any): string => {
     if (!node) return "";
     if (node.text) return node.text;
@@ -171,15 +219,11 @@ export default function Notes() {
 
   const selectNote = async (note: Note) => {
     await flushPendingSave("switch-note");
-    console.log("[Notes] selectNote called:", note.id);
-    console.log("[Notes] selected note content from DB:", JSON.stringify(note.content)?.slice(0, 300));
     setSelectedNote(note.id);
     setTitle(note.title);
     const migrated = migrateContent(note.content);
-    console.log("[Notes] migrated content:", JSON.stringify(migrated)?.slice(0, 300));
     setEditorContent(migrated);
     setActiveNote(note.title, extractText(migrated));
-    // Fetch linked code projects
     const { data } = await supabase
       .from("code_projects")
       .select("id, title, language")
@@ -188,31 +232,13 @@ export default function Notes() {
   };
 
   const persistNote = useCallback(async (noteId: string, newTitle: string, newContent: any, source: string) => {
-    const payload = {
-      title: newTitle || "Untitled",
-      content: newContent,
-    };
-
-    console.log("[Notes] save payload sent to Supabase:", {
-      source,
-      noteId,
-      title: payload.title,
-      content: JSON.stringify(payload.content)?.slice(0, 300),
-    });
-
+    const payload = { title: newTitle || "Untitled", content: newContent };
     const { data, error } = await supabase
       .from("notes")
       .update(payload)
       .eq("id", noteId)
       .select("id, title, content, updated_at, folder_id")
       .single();
-
-    console.log("[Notes] save response from Supabase:", {
-      source,
-      noteId,
-      error,
-      data,
-    });
 
     if (error) {
       console.error("Autosave failed:", error);
@@ -245,75 +271,72 @@ export default function Notes() {
 
   const autoSave = useCallback(
     (noteId: string, newTitle: string, newContent: any) => {
-      pendingSaveRef.current = {
-        noteId,
-        title: newTitle,
-        content: newContent,
-      };
-
+      pendingSaveRef.current = { noteId, title: newTitle, content: newContent };
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       setSaveStatus("saving");
-
       saveTimeoutRef.current = setTimeout(async () => {
         saveTimeoutRef.current = null;
-        const pendingSave = pendingSaveRef.current;
-        if (!pendingSave) return;
-
+        const pending = pendingSaveRef.current;
+        if (!pending) return;
         pendingSaveRef.current = null;
-        await persistNote(pendingSave.noteId, pendingSave.title, pendingSave.content, "debounced-save");
-      }, 800);
+        await persistNote(pending.noteId, pending.title, pending.content, "debounced-save");
+      }, 1200);
     },
     [persistNote]
   );
 
-  useEffect(() => {
-    if (!selectedNote) return;
-
-    console.log("[Notes] parent editorContent state before rendering NoteEditor:", {
-      selectedNote,
-      content: JSON.stringify(editorContent)?.slice(0, 300),
-    });
-  }, [selectedNote, editorContent]);
-
+  // Flush on unmount (route change)
   useEffect(() => {
     return () => {
       void flushPendingSave("notes-unmount");
     };
   }, [flushPendingSave]);
 
+  // Flush on tab close / refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const pending = pendingSaveRef.current;
+      if (!pending) return;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?id=eq.${pending.noteId}`;
+      const body = JSON.stringify({ title: pending.title, content: pending.content });
+      navigator.sendBeacon(
+        url,
+        new Blob([body], { type: "application/json" })
+      );
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
   const handleTitleChange = (val: string) => {
     setTitle(val);
     if (selectedNote) {
       setActiveNote(val, extractText(editorContent));
-      // Direct save - no debounce
-      setSaveStatus("saving");
-      persistNote(selectedNote, val, editorContent, "direct-title-update");
+      autoSave(selectedNote, val, editorContent);
     }
   };
 
   const handleEditorUpdate = (json: any) => {
-    console.log("[Notes] handleEditorUpdate called, selectedNote:", selectedNote);
-    console.log("[Notes] content from NoteEditor:", JSON.stringify(json)?.slice(0, 300));
     setEditorContent(json);
     if (selectedNote) {
       setActiveNote(title, extractText(json));
-      // Direct save - no debounce
-      setSaveStatus("saving");
-      persistNote(selectedNote, title, json, "direct-editor-update");
+      autoSave(selectedNote, title, json);
     }
   };
 
   // Folder CRUD
-  const createFolder = async () => {
+  const createFolder = async (parentId: string | null = null) => {
     if (!user) {
       toast({ title: "Please sign in", description: "You must be logged in to create a folder.", variant: "destructive" });
       return;
     }
     try {
+      const insert: any = { user_id: user.id, name: "New Folder" };
+      if (parentId) insert.parent_id = parentId;
       const { data, error } = await supabase
         .from("folders")
-        .insert({ user_id: user.id, name: "New Folder" })
-        .select("id, name, created_at")
+        .insert(insert)
+        .select("id, name, parent_id, created_at")
         .single();
       if (error) {
         console.error("Failed to create folder:", error);
@@ -321,9 +344,14 @@ export default function Notes() {
         return;
       }
       if (data) {
-        const folder = data as Folder;
+        const folder = data as any as Folder;
         setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
-        setExpandedFolders((prev) => new Set([...prev, folder.id]));
+        setExpandedFolders((prev) => {
+          const next = new Set(prev);
+          next.add(folder.id);
+          if (parentId) next.add(parentId);
+          return next;
+        });
         setEditingFolderId(folder.id);
         setEditingFolderName(folder.name);
         toast({ title: "Folder created" });
@@ -343,10 +371,44 @@ export default function Notes() {
     setEditingFolderId(null);
   };
 
+  // Returns true if `candidateParentId` is a descendant of `folderId` (used to prevent move loops).
+  const isDescendant = (folderId: string, candidateParentId: string): boolean => {
+    let cursor: string | null = candidateParentId;
+    const seen = new Set<string>();
+    while (cursor && !seen.has(cursor)) {
+      if (cursor === folderId) return true;
+      seen.add(cursor);
+      const f = folders.find((x) => x.id === cursor);
+      cursor = f?.parent_id ?? null;
+    }
+    return false;
+  };
+
+  const moveFolder = async (folderId: string, parentId: string | null) => {
+    if (parentId === folderId) return;
+    if (parentId && isDescendant(folderId, parentId)) {
+      toast({ title: "Invalid move", description: "Cannot move a folder into its own subfolder.", variant: "destructive" });
+      return;
+    }
+    // Cast to any to bypass stale generated types (DB schema uses parent_id, not subject_id).
+    const { error } = await (supabase.from("folders") as any).update({ parent_id: parentId }).eq("id", folderId);
+    if (error) {
+      toast({ title: "Move failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, parent_id: parentId } : f)));
+    if (parentId) setExpandedFolders((prev) => new Set([...prev, parentId]));
+  };
+
   const deleteFolder = async (id: string) => {
-    // Notes in folder get folder_id set to null (ON DELETE SET NULL)
+    // Notes in this folder become uncategorized.
+    // Direct child folders become root-level (parent_id = null).
     await supabase.from("folders").delete().eq("id", id);
-    setFolders((prev) => prev.filter((f) => f.id !== id));
+    setFolders((prev) =>
+      prev
+        .filter((f) => f.id !== id)
+        .map((f) => (f.parent_id === id ? { ...f, parent_id: null } : f))
+    );
     setNotes((prev) => prev.map((n) => (n.folder_id === id ? { ...n, folder_id: null } : n)));
   };
 
@@ -413,25 +475,36 @@ export default function Notes() {
   // Derived data
   const uncategorizedNotes = notes.filter((n) => !n.folder_id);
   const notesInFolder = (folderId: string) => notes.filter((n) => n.folder_id === folderId);
+  const childFolders = (parentId: string | null) =>
+    folders.filter((f) => (f.parent_id ?? null) === parentId);
 
   const matchesSearch = (note: Note) =>
     !search || note.title.toLowerCase().includes(search.toLowerCase());
 
-  const folderMatchesSearch = (folder: Folder) => {
+  // Recursive: a folder matches search if its name matches, any of its notes match,
+  // or any descendant folder matches.
+  const folderMatchesSearch = (folder: Folder): boolean => {
     if (!search) return true;
     if (folder.name.toLowerCase().includes(search.toLowerCase())) return true;
-    return notesInFolder(folder.id).some(matchesSearch);
+    if (notesInFolder(folder.id).some(matchesSearch)) return true;
+    return childFolders(folder.id).some(folderMatchesSearch);
   };
 
-  const formatTime = (iso: string) => {
-    const diff = Date.now() - new Date(iso).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
+  // While searching, transiently expand folders containing matches so results are visible.
+  const effectiveExpandedFolders = useMemo(() => {
+    if (!search) return expandedFolders;
+    const next = new Set(expandedFolders);
+    for (const folder of folders) {
+      if (
+        notesInFolder(folder.id).some(matchesSearch) ||
+        childFolders(folder.id).some(folderMatchesSearch)
+      ) {
+        next.add(folder.id);
+      }
+    }
+    return next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedFolders, search, folders, notes]);
 
   const handleDragStart = (e: React.DragEvent, noteId: string) => {
     setDraggedNoteId(noteId);
@@ -451,7 +524,6 @@ export default function Notes() {
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only clear if leaving the drop zone entirely
     const related = e.relatedTarget as HTMLElement | null;
     if (!e.currentTarget.contains(related)) {
       setDropTargetId(null);
@@ -546,18 +618,17 @@ export default function Notes() {
     >
       <button
         onClick={() => selectNote(note)}
-        className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+        title={note.title}
+        aria-current={selectedNote === note.id ? "page" : undefined}
+        className={`w-full text-left pl-3 pr-7 py-1.5 rounded-lg transition-all ${
           selectedNote === note.id
-            ? "bg-accent text-foreground"
-            : "hover:bg-accent/50 text-foreground"
+            ? "bg-primary/10 text-foreground border border-primary/15"
+            : "hover:bg-accent/30 text-foreground border border-transparent"
         }`}
       >
-        <div className="flex items-start gap-2">
-          <FileText size={13} className="text-muted-foreground mt-0.5 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate">{note.title}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">{formatTime(note.updated_at)}</p>
-          </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText size={13} className="text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate min-w-0 flex-1">{note.title}</span>
         </div>
       </button>
       <DropdownMenu>
@@ -598,6 +669,161 @@ export default function Notes() {
     </div>
   );
 
+  // Recursive folder renderer (any depth).
+  const renderFolder = (folder: Folder, depth: number) => {
+    const isExpanded = effectiveExpandedFolders.has(folder.id);
+    const folderNotes = notesInFolder(folder.id).filter(matchesSearch);
+    const subFolders = childFolders(folder.id).filter(folderMatchesSearch);
+    const isEditing = editingFolderId === folder.id;
+    const directNoteCount = notesInFolder(folder.id).length;
+
+    return (
+      <div key={folder.id} style={depth > 0 ? { marginLeft: `${depth * 12}px` } : undefined}>
+        <div
+          className={`group flex items-center gap-1 rounded-md transition-colors pr-1 ${
+            dropTargetId === folder.id
+              ? "bg-primary/10 ring-1 ring-primary/30"
+              : "hover:bg-accent/50"
+          }`}
+          onDragOver={(e) => handleDragOver(e, folder.id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, folder.id)}
+        >
+          <button
+            onClick={() => toggleFolder(folder.id)}
+            aria-expanded={isExpanded}
+            title={folder.name}
+            className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
+          >
+            {isExpanded ? (
+              <ChevronDown size={12} className="text-muted-foreground shrink-0" />
+            ) : (
+              <ChevronRight size={12} className="text-muted-foreground shrink-0" />
+            )}
+            {isExpanded ? (
+              <FolderOpen size={14} className="text-primary shrink-0" />
+            ) : (
+              <FolderClosed size={14} className="text-muted-foreground shrink-0" />
+            )}
+            {isEditing ? (
+              <input
+                ref={renameInputRef}
+                value={editingFolderName}
+                onChange={(e) => setEditingFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") renameFolder(folder.id, editingFolderName);
+                  if (e.key === "Escape") setEditingFolderId(null);
+                }}
+                onBlur={() => renameFolder(folder.id, editingFolderName)}
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs font-medium bg-transparent outline-none border-b border-primary flex-1 min-w-0"
+              />
+            ) : (
+              <span className="text-xs font-medium truncate min-w-0 flex-1">{folder.name}</span>
+            )}
+            <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+              {directNoteCount}
+            </span>
+          </button>
+
+          {!isEditing && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent transition-opacity">
+                  <MoreHorizontal size={12} className="text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem className="text-xs" onClick={() => createNote(folder.id)}>
+                  <Plus size={12} className="mr-2" />
+                  New Note
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-xs" onClick={() => createFolder(folder.id)}>
+                  <FolderPlus size={12} className="mr-2" />
+                  New Subfolder
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-xs"
+                  onClick={() => {
+                    setEditingFolderId(folder.id);
+                    setEditingFolderName(folder.name);
+                  }}
+                >
+                  <Pencil size={12} className="mr-2" />
+                  Rename
+                </DropdownMenuItem>
+                {folders.length > 1 && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="text-xs">
+                      <ArrowRightLeft size={12} className="mr-2" />
+                      Move to…
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-44 max-h-64 overflow-y-auto">
+                      {folder.parent_id && (
+                        <DropdownMenuItem className="text-xs" onClick={() => moveFolder(folder.id, null)}>
+                          Top level
+                        </DropdownMenuItem>
+                      )}
+                      {folders
+                        .filter((f) => f.id !== folder.id && !isDescendant(folder.id, f.id) && f.id !== folder.parent_id)
+                        .map((f) => (
+                          <DropdownMenuItem key={f.id} className="text-xs" onClick={() => moveFolder(folder.id, f.id)}>
+                            {f.name}
+                          </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
+                <DropdownMenuItem
+                  className="text-xs"
+                  disabled={generatingFolderId === folder.id}
+                  onClick={() => generateFolderFlashcards(folder.id)}
+                >
+                  {generatingFolderId === folder.id ? (
+                    <Loader2 size={12} className="mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles size={12} className="mr-2" />
+                  )}
+                  {generatingFolderId === folder.id ? "Generating…" : "Generate Flashcards"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-xs text-destructive"
+                  onClick={() =>
+                    setPendingDeleteFolder({
+                      id: folder.id,
+                      name: folder.name,
+                      noteCount: directNoteCount,
+                      childCount: childFolders(folder.id).length,
+                    })
+                  }
+                >
+                  <Trash2 size={12} className="mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+
+        {isExpanded && (
+          <div className="ml-2 mt-0.5 space-y-0.5 border-l border-border/40 pl-1">
+            {/* Subfolders first */}
+            {subFolders.map((child) => renderFolder(child, depth + 1))}
+            {/* Then notes in this folder */}
+            <div className="ml-3 space-y-0.5">
+              {folderNotes.map((note) => (
+                <NoteItem key={note.id} note={note} />
+              ))}
+              {folderNotes.length === 0 && subFolders.length === 0 && !search && (
+                <p className="text-[10px] text-muted-foreground px-3 py-1.5">Empty folder</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
@@ -606,11 +832,13 @@ export default function Notes() {
     );
   }
 
+  const rootFolders = childFolders(null).filter(folderMatchesSearch);
+
   return (
     <div className="flex h-full animate-fade-in">
       {/* Sidebar */}
-      <div className="w-64 border-r flex flex-col shrink-0">
-        <div className="p-3 border-b space-y-2">
+      <div className="w-64 border-r border-border/50 flex flex-col shrink-0 bg-sidebar">
+        <div className="p-3 border-b border-border/50 space-y-2">
           <Link
             to="/"
             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1"
@@ -621,34 +849,34 @@ export default function Notes() {
           <div className="flex gap-1.5">
             <button
               onClick={() => createNote(null)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all btn-glow"
             >
               <Plus size={13} />
               New Note
             </button>
             <button
               onClick={() => setShowUpload(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="Import Lecture"
             >
               <Upload size={13} />
             </button>
             <button
               onClick={() => setShowRecorder(true)}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="Record Lecture"
             >
               <Mic size={13} />
             </button>
             <button
-              onClick={createFolder}
-              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium hover:bg-accent transition-colors"
+              onClick={() => createFolder(null)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-border/50 text-xs font-medium hover:bg-accent/30 transition-all"
               title="New Folder"
             >
               <FolderPlus size={13} />
             </button>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border bg-background">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/50 bg-muted/30">
             <Search size={13} className="text-muted-foreground" />
             <input
               type="text"
@@ -661,122 +889,8 @@ export default function Notes() {
         </div>
 
         <div className="flex-1 overflow-auto scrollbar-thin p-2 space-y-1">
-          {/* Folders */}
-          {folders.filter(folderMatchesSearch).map((folder) => {
-            const isExpanded = expandedFolders.has(folder.id);
-            const folderNotes = notesInFolder(folder.id).filter(matchesSearch);
-            const isEditing = editingFolderId === folder.id;
-
-            return (
-              <div key={folder.id}>
-              <div
-                className={`group flex items-center gap-1 rounded-md transition-colors pr-1 ${
-                  dropTargetId === folder.id
-                    ? "bg-primary/10 ring-1 ring-primary/30"
-                    : "hover:bg-accent/50"
-                }`}
-                onDragOver={(e) => handleDragOver(e, folder.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, folder.id)}
-              >
-                  <button
-                    onClick={() => toggleFolder(folder.id)}
-                    className="flex items-center gap-1.5 flex-1 px-2 py-1.5 min-w-0"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown size={12} className="text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronRight size={12} className="text-muted-foreground shrink-0" />
-                    )}
-                    {isExpanded ? (
-                      <FolderOpen size={14} className="text-primary shrink-0" />
-                    ) : (
-                      <FolderClosed size={14} className="text-muted-foreground shrink-0" />
-                    )}
-                    {isEditing ? (
-                      <input
-                        ref={renameInputRef}
-                        value={editingFolderName}
-                        onChange={(e) => setEditingFolderName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") renameFolder(folder.id, editingFolderName);
-                          if (e.key === "Escape") setEditingFolderId(null);
-                        }}
-                        onBlur={() => renameFolder(folder.id, editingFolderName)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-xs font-medium bg-transparent outline-none border-b border-primary flex-1 min-w-0"
-                      />
-                    ) : (
-                      <span className="text-xs font-medium truncate">{folder.name}</span>
-                    )}
-                    <span className="text-[10px] text-muted-foreground ml-auto tabular-nums shrink-0">
-                      {notesInFolder(folder.id).length}
-                    </span>
-                  </button>
-
-                  {!isEditing && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-accent transition-opacity">
-                          <MoreHorizontal size={12} className="text-muted-foreground" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        <DropdownMenuItem
-                          className="text-xs"
-                          onClick={() => createNote(folder.id)}
-                        >
-                          <Plus size={12} className="mr-2" />
-                          New Note
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-xs"
-                          onClick={() => {
-                            setEditingFolderId(folder.id);
-                            setEditingFolderName(folder.name);
-                          }}
-                        >
-                          <Pencil size={12} className="mr-2" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-xs"
-                          disabled={generatingFolderId === folder.id}
-                          onClick={() => generateFolderFlashcards(folder.id)}
-                        >
-                          {generatingFolderId === folder.id ? (
-                            <Loader2 size={12} className="mr-2 animate-spin" />
-                          ) : (
-                            <Sparkles size={12} className="mr-2" />
-                          )}
-                          {generatingFolderId === folder.id ? "Generating…" : "Generate Flashcards"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-xs text-destructive"
-                          onClick={() => setPendingDeleteFolder({ id: folder.id, name: folder.name, noteCount: notesInFolder(folder.id).length })}
-                        >
-                          <Trash2 size={12} className="mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-
-                {/* Notes in folder */}
-                {isExpanded && (
-                  <div className="ml-5 mt-0.5 space-y-0.5">
-                    {folderNotes.map((note) => (
-                      <NoteItem key={note.id} note={note} />
-                    ))}
-                    {folderNotes.length === 0 && !search && (
-                      <p className="text-[10px] text-muted-foreground px-3 py-1.5">Empty folder</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {/* Root-level folders (recursive) */}
+          {rootFolders.map((folder) => renderFolder(folder, 0))}
 
           {/* Uncategorized notes */}
           {uncategorizedNotes.filter(matchesSearch).length > 0 && (
@@ -815,7 +929,7 @@ export default function Notes() {
       {/* Editor */}
       <div className="flex-1 flex flex-col min-w-0">
         {selectedNote ? (
-          <div className="flex-1 flex flex-col p-8 max-w-3xl overflow-hidden">
+          <div className="flex-1 flex flex-col p-8 max-w-5xl overflow-hidden">
             <div className="flex items-center gap-3 mb-4 shrink-0">
               <input
                 type="text"
@@ -867,7 +981,7 @@ export default function Notes() {
         )}
 
         {/* Compact study sounds at bottom of editor */}
-        <div className="border-t px-4 py-3 flex justify-center shrink-0">
+        <div className="border-t border-border/50 px-4 py-3 flex justify-center shrink-0">
           <StudySounds compact />
         </div>
       </div>
@@ -876,7 +990,6 @@ export default function Notes() {
         onOpenChange={setShowUpload}
         folderId={null}
         onNoteCreated={async (noteId) => {
-          // Reload notes and select the new one
           const { data } = await supabase
             .from("notes")
             .select("*")
@@ -939,6 +1052,7 @@ export default function Notes() {
             <AlertDialogDescription>
               "{pendingDeleteFolder?.name}" will be permanently deleted.
               {pendingDeleteFolder?.noteCount ? ` ${pendingDeleteFolder.noteCount} note${pendingDeleteFolder.noteCount > 1 ? "s" : ""} inside will be moved to Uncategorized.` : ""}
+              {pendingDeleteFolder?.childCount ? ` ${pendingDeleteFolder.childCount} subfolder${pendingDeleteFolder.childCount > 1 ? "s" : ""} will be moved to the top level.` : ""}
               {" "}This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
