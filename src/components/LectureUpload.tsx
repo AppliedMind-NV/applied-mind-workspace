@@ -306,7 +306,6 @@ export function LectureUpload({ open, onOpenChange, folderId, onNoteCreated }: L
   };
 
   const allDone = files.length > 0 && files.every((f) => f.status === "done" || f.status === "error");
-  const hasQueued = files.some((f) => f.status === "queued");
   const successCount = files.filter((f) => f.status === "done").length;
 
   const statusIcon = (s: FileStatus) => {
